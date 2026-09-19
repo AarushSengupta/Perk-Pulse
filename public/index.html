@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_standard" name="shell-type"/>
+  <title>PerkPulse — Credit Intelligence & Card Perk Maximizer</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"/>
+  
+  <!-- Tailwind CSS CDN with PerkPulse Design Tokens -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#0b1326",
+            "surface-dim": "#0b1326",
+            "surface-bright": "#31394d",
+            "surface-container-lowest": "#060e20",
+            "surface-container-low": "#131b2e",
+            "surface-container": "#171f33",
+            "surface-container-high": "#222a3d",
+            "surface-container-highest": "#2d3449",
+            "on-surface": "#dae2fd",
+            "on-surface-variant": "#bdc8d1",
+            "outline": "#87929a",
+            "outline-variant": "#3e484f",
+            "primary": "#8ed5ff",
+            "on-primary": "#00354a",
+            "primary-container": "#38bdf8",
+            "on-primary-container": "#004965",
+            "secondary": "#4edea3",
+            "on-secondary": "#003824",
+            "secondary-container": "#00a572",
+            "tertiary": "#ffc174",
+            "tertiary-container": "#f59e0b",
+            "error": "#ffb4ab",
+            "error-container": "#93000a"
+          },
+          fontFamily: {
+            "headline": ["Geist", "sans-serif"],
+            "body": ["Inter", "sans-serif"],
+            "mono-metric": ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+  
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body class="bg-surface font-body text-sm text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+
+  <!-- Top Sticky Header -->
+  <header class="sticky top-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-surface-container-highest/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <!-- Left: Logo & Navigation Tabs -->
+      <div class="flex items-center gap-4 sm:gap-8">
+        <div class="flex items-center gap-3 cursor-pointer" id="logoBtn">
+          <div class="w-8 h-8 rounded-lg bg-primary-container/10 border border-primary-container/30 flex items-center justify-center text-primary-container font-headline font-bold text-lg">P</div>
+          <span class="font-headline text-lg tracking-tight font-semibold text-on-surface">Perk<span class="text-primary-container">Pulse</span></span>
+        </div>
+        
+        <nav class="flex items-center gap-1">
+          <button id="tabHome" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors bg-surface-container-high text-primary-container">
+            Home
+          </button>
+          <button id="tabOffers" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+            Offers
+          </button>
+          <button id="tabPerks" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+            Card Perks
+          </button>
+          <button id="tabWallet" class="nav-tab px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
+            Wallet
+          </button>
+        </nav>
+      </div>
+
+      <!-- Right: Wallet Status & Refresh -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="openWalletModalBtn" class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-low text-xs text-on-surface-variant border border-surface-container-highest/50 hover:border-primary-container/50 transition-colors">
+          <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+          <span id="headerCardCount">0 Cards Synced</span>
+          <span class="material-symbols-outlined text-[14px]">tune</span>
+        </button>
+        
+        <button id="refreshDataBtn" title="Sync Live Public Offers" class="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container hover:text-primary-container flex items-center justify-center text-on-surface-variant transition-colors">
+          <span class="material-symbols-outlined text-[18px]">sync</span>
+        </button>
+
+        <div class="hidden lg:flex items-center gap-1.5 text-[11px] text-outline font-mono pl-2 border-l border-surface-container-highest/50">
+          <span class="material-symbols-outlined text-[14px] text-secondary">verified_user</span>
+          <span>Zero Bank Credentials</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- ================================================================= -->
+    <!-- VIEW 1: HOME / DASHBOARD (Portfolio Summary)                      -->
+    <!-- ================================================================= -->
+    <section id="viewHome" class="space-y-8">
+      <!-- Title & Live Status -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <div class="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-primary-container">
+            <span class="w-2 h-2 rounded-full bg-primary-container animate-ping"></span>
+            <span>ENGINE STATUS // REAL-TIME ARBITRAGE</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-headline font-bold text-on-surface mt-1">Portfolio Summary</h1>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono text-outline">
+          <span>Auto-refresh: <span id="homeRefreshTimer" class="text-primary-container">04:59</span></span>
+          <span>•</span>
+          <span id="homeCardsSyncedLabel" class="text-secondary">0 Cards Synced</span>
+        </div>
+      </div>
+
+      <!-- Empty Wallet Prompt Banner (visible when 0 cards) -->
+      <div id="homeEmptyWalletBanner" class="p-4 sm:p-5 rounded-xl bg-surface-container-low border border-primary-container/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-container/10 border border-primary-container/30 flex items-center justify-center text-primary-container shrink-0 mt-0.5">
+            <span class="material-symbols-outlined text-2xl">add_card</span>
+          </div>
+          <div>
+            <h3 class="font-headline font-semibold text-sm text-on-surface">No cards connected to your wallet yet</h3>
+            <p class="text-xs text-outline mt-0.5">Add the credit cards you own (Chase, Amex, Discover, Capital One, Citi, Bilt) to unlock your annual credit audit and category multipliers.</p>
+          </div>
+        </div>
+        <button id="homeGoToWalletBtn" class="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container font-semibold text-xs hover:opacity-90 transition-opacity shrink-0 flex items-center justify-center gap-1.5 self-start sm:self-auto">
+          <span>Add Your Cards</span>
+          <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+        </button>
+      </div>
+
+      <!-- Hero Stat Cards (3 Cards) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Stat 1: Total Annual Credits -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">TOTAL ANNUAL CREDITS</span>
+            <span class="material-symbols-outlined text-outline text-[18px]">credit_card</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-primary-container font-mono-metric" id="homeTotalCredits">$0</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span id="homeRemainingCredits">$0 remaining</span>
+              <span class="text-secondary font-medium" id="homeCreditsPercent">0.0% Unlocked</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat 2: Active Offers -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">ACTIVE OFFERS</span>
+            <span class="material-symbols-outlined text-outline text-[18px]">sell</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-secondary font-mono-metric" id="homeActiveOffersCount">142</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span>Across connected cards</span>
+              <span class="text-secondary font-medium">+14 New Today</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat 3: Expiring Soon -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">EXPIRING SOON</span>
+            <span class="material-symbols-outlined text-outline text-[18px]">schedule</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-tertiary-container font-mono-metric" id="homeExpiringCount">19</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span class="text-tertiary-container">&lt; 48h to redeem</span>
+              <span class="text-tertiary-container font-semibold uppercase tracking-wider text-[11px]">Urgent Action</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Split Layout: Top Expiring Offers (Left) & Spend Engine / Burn Rate (Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: Top Expiring Offers Table (7 cols) -->
+        <div class="lg:col-span-7 bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40">
+          <div class="flex items-center justify-between pb-4 border-b border-surface-container-highest/40">
+            <div class="flex items-center gap-2">
+              <h2 class="font-headline font-semibold text-base text-on-surface">Top Expiring Offers</h2>
+              <span class="px-2 py-0.5 rounded bg-surface-container-high text-[11px] font-mono text-outline">4 priority</span>
+            </div>
+            <button id="viewAllOffersFromHome" class="text-xs font-mono text-primary-container hover:underline flex items-center gap-1">
+              <span>View All 19</span>
+              <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </button>
+          </div>
+
+          <div class="divide-y divide-surface-container-highest/30 mt-2" id="homeExpiringOffersList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Right: Spend Engine & Credit Burn Rate (5 cols) -->
+        <div class="lg:col-span-5 space-y-6">
+          <!-- Spend Engine Quick Router -->
+          <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40">
+            <div class="flex items-center justify-between pb-3 border-b border-surface-container-highest/40">
+              <h2 class="font-headline font-semibold text-base text-on-surface">Spend Engine</h2>
+              <span class="text-[10px] font-mono uppercase tracking-wider text-secondary">OPTIMAL ROUTING</span>
+            </div>
+
+            <!-- Category Pills Selector -->
+            <div class="flex items-center gap-1.5 mt-4 overflow-x-auto pb-1" id="homeQuickCategoryPills">
+              <button data-cat="dining" class="home-cat-pill active px-3 py-1 rounded-md text-xs font-medium bg-primary-container text-on-primary-container">Dining</button>
+              <button data-cat="flights" class="home-cat-pill px-3 py-1 rounded-md text-xs font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface">Flights</button>
+              <button data-cat="groceries" class="home-cat-pill px-3 py-1 rounded-md text-xs font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface">Groceries</button>
+              <button data-cat="gas" class="home-cat-pill px-3 py-1 rounded-md text-xs font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface">Gas</button>
+            </div>
+
+            <!-- Dynamic Best Card Display for Chosen Category -->
+            <div class="mt-5 p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40">
+              <div class="flex items-baseline justify-between">
+                <div>
+                  <span class="text-xs uppercase tracking-wider text-outline font-semibold" id="homeQuickCatName">Dining & Restaurants</span>
+                  <div class="text-lg font-headline font-bold text-on-surface mt-0.5" id="homeQuickCardName">Amex Gold</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold font-mono-metric text-primary-container" id="homeQuickMultiplier">4.0x <span class="text-xs font-normal">PTS</span></div>
+                </div>
+              </div>
+              <p class="text-xs text-on-surface-variant mt-2 leading-relaxed" id="homeQuickRule">
+                Use for worldwide dining & takeout. Plus 4x on US Supermarkets up to $25,000/yr.
+              </p>
+            </div>
+          </div>
+
+          <!-- Credit Burn Rate -->
+          <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40">
+            <div class="flex items-center justify-between pb-3 border-b border-surface-container-highest/40">
+              <h2 class="font-headline font-semibold text-base text-on-surface">Credit Burn Rate</h2>
+              <span class="text-[10px] font-mono text-outline">CY2026</span>
+            </div>
+
+            <div class="space-y-4 mt-4">
+              <!-- Item 1 -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="font-medium text-on-surface">Chase Travel Credit ($300)</span>
+                  <span class="font-mono text-secondary">100% Complete</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                  <div class="h-full rounded-full bg-primary-container" style="width: 100%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
+                  <span>$300 redeemed</span>
+                  <span>$0 remaining</span>
+                </div>
+              </div>
+
+              <!-- Item 2 -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="font-medium text-on-surface">Amex Airline Fee Credit ($200)</span>
+                  <span class="font-mono text-secondary">75% Used</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                  <div class="h-full rounded-full bg-secondary" style="width: 75%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
+                  <span>$150 redeemed (United)</span>
+                  <span>$50 remaining</span>
+                </div>
+              </div>
+
+              <!-- Item 3 -->
+              <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                  <span class="font-medium text-on-surface">Venture X Annual Travel ($300)</span>
+                  <span class="font-mono text-tertiary-container">33% Used</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                  <div class="h-full rounded-full bg-tertiary-container" style="width: 33%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
+                  <span>$100 redeemed</span>
+                  <span>$200 remaining</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 2: OFFERS (Public Credit Card Offers Directory)               -->
+    <!-- ================================================================= -->
+    <section id="viewOffers" class="space-y-6 hidden">
+      <!-- Top Metric Overview -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-highest/40 flex flex-col justify-between">
+          <span class="text-xs uppercase tracking-wider text-outline font-medium">TOTAL AVAILABLE VALUE</span>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-bold tracking-tight text-primary-container font-mono-metric" id="offersTotalVal">$1,482</span>
+            <span class="text-xs text-secondary font-medium">+18% this month</span>
+          </div>
+          <p class="text-xs text-on-surface-variant mt-1.5">Active cash back & credits ready to trigger</p>
+        </div>
+
+        <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-highest/40 flex flex-col justify-between">
+          <span class="text-xs uppercase tracking-wider text-outline font-medium">AVG DISCOUNT RATE</span>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-bold tracking-tight text-secondary font-mono-metric" id="offersAvgRate">18.5%</span>
+            <span class="text-xs text-outline">Across 142 offers</span>
+          </div>
+          <p class="text-xs text-on-surface-variant mt-1.5">Weighted across dining, tech & travel</p>
+        </div>
+
+        <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-highest/40 flex flex-col justify-between">
+          <span class="text-xs uppercase tracking-wider text-outline font-medium">ENDING SOON</span>
+          <div class="mt-3 flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-bold tracking-tight text-tertiary-container font-mono-metric" id="offersExpiringCount">19</span>
+            <span class="text-xs text-tertiary-container font-medium">&lt; 48 hours left</span>
+          </div>
+          <p class="text-xs text-on-surface-variant mt-1.5">$310 total potential expiring this week</p>
+        </div>
+      </div>
+
+      <!-- Offers Controls & Scope Switcher -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
+        <div class="flex items-center gap-2">
+          <!-- Active Wallet Offers Scope -->
+          <div class="px-3 py-1.5 rounded-lg text-xs font-medium border border-surface-container-highest/60 bg-surface-container-low text-on-surface flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+            <span id="walletScopeLabel" class="font-mono">Wallet Offers (<span id="offersCountBadge">0</span>)</span>
+          </div>
+        </div>
+
+        <!-- Search Bar & Sort Dropdown -->
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <div class="relative flex-1 sm:w-64">
+            <span class="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-outline">search</span>
+            <input type="text" id="offerSearchInput" placeholder="Filter merchant or card..." class="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container focus:ring-1 focus:ring-primary-container text-on-surface placeholder:text-outline outline-none"/>
+            <button id="clearSearchBtn" class="hidden absolute right-2.5 top-2 text-outline hover:text-on-surface text-xs font-bold">✕</button>
+          </div>
+
+          <!-- Sort Select -->
+          <div class="flex items-center gap-1.5 bg-surface-container-lowest border border-surface-container-highest rounded-lg px-2.5 py-1.5 text-xs text-on-surface">
+            <span class="material-symbols-outlined text-[16px] text-outline">sort</span>
+            <label for="sortSelect" class="text-outline text-[11px] font-mono">SORT:</label>
+            <select id="sortSelect" class="bg-transparent text-xs text-on-surface outline-none cursor-pointer">
+              <option value="default" class="bg-surface-container">Expiring First</option>
+              <option value="price" class="bg-surface-container">Discount Amount ($)</option>
+              <option value="rate" class="bg-surface-container">Discount % Rate</option>
+              <option value="total_value" class="bg-surface-container">Total Cap Value</option>
+              <option value="expiration" class="bg-surface-container">Expiration Date</option>
+              <option value="category" class="bg-surface-container">Category (A-Z)</option>
+              <option value="merchant" class="bg-surface-container">Merchant (A-Z)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills & Mode Switcher -->
+      <div class="bg-surface-container-low rounded-xl p-4 border border-surface-container-highest/40 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-outline flex items-center gap-2">
+            <span>Filter by Category</span>
+            <span class="text-outline-variant">•</span>
+            <span id="catModeNotice" class="text-secondary text-[10px]">Multi-Select Active</span>
+          </div>
+
+          <!-- Single Category Focus vs Multi-Select Toggle -->
+          <div class="flex items-center gap-2 text-xs">
+            <label class="text-[11px] font-mono text-outline cursor-pointer flex items-center gap-1.5">
+              <input type="checkbox" id="singleCategoryModeCheckbox" class="rounded border-surface-container-highest text-primary-container focus:ring-0 cursor-pointer"/>
+              <span>Single Category Focus Mode</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Category Pills List -->
+        <div class="flex flex-wrap items-center gap-1.5" id="categoryPillsContainer">
+          <button data-cat="all" class="cat-pill active px-3 py-1 rounded-full text-xs font-medium border border-primary-container bg-primary-container/10 text-primary-container">All Categories</button>
+          <button data-cat="Dining" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Dining</button>
+          <button data-cat="Travel" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Travel</button>
+          <button data-cat="Groceries" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Groceries</button>
+          <button data-cat="Retail" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Retail</button>
+          <button data-cat="Tech/Streaming" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Tech / Streaming</button>
+          <button data-cat="Entertainment/Sports" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Sports & Entertainment</button>
+          <button data-cat="Gas/Automotive" class="cat-pill px-3 py-1 rounded-full text-xs font-medium border border-surface-container-highest bg-surface-container hover:border-outline text-on-surface-variant">Gas & Automotive</button>
+        </div>
+
+        <!-- Network Quick Filter Chips -->
+        <div class="pt-2 border-t border-surface-container-highest/30 flex flex-wrap items-center gap-2 text-xs">
+          <span class="text-[11px] font-mono text-outline">Network:</span>
+          <button data-network="all" class="net-chip active px-2.5 py-0.5 rounded text-[11px] font-mono bg-primary-container/20 text-primary-container border border-primary-container/40">All</button>
+          <button data-network="Amex" class="net-chip px-2.5 py-0.5 rounded text-[11px] font-mono badge-amex">Amex</button>
+          <button data-network="Chase" class="net-chip px-2.5 py-0.5 rounded text-[11px] font-mono badge-chase">Chase</button>
+          <button data-network="Capital One" class="net-chip px-2.5 py-0.5 rounded text-[11px] font-mono badge-capone">Capital One</button>
+          <button data-network="Discover" class="net-chip px-2.5 py-0.5 rounded text-[11px] font-mono badge-discover">Discover</button>
+          <button data-network="Citi" class="net-chip px-2.5 py-0.5 rounded text-[11px] font-mono badge-citi">Citi</button>
+        </div>
+      </div>
+
+      <!-- Active Offers Section (List of Rows) -->
+      <div id="activeOffersSection" class="space-y-3">
+        <!-- Dynamically rendered offer cards -->
+      </div>
+
+      <!-- Empty state when no offers match -->
+      <div id="offersEmptyState" class="hidden py-16 text-center bg-surface-container-low rounded-xl border border-surface-container-highest/40">
+        <span class="material-symbols-outlined text-4xl text-outline mb-2">filter_alt_off</span>
+        <h3 class="text-base font-semibold text-on-surface" id="offersEmptyTitle">No offers for your wallet cards</h3>
+        <p class="text-xs text-outline mt-1 max-w-sm mx-auto" id="offersEmptyDesc">Add cards to your wallet or adjust category filters to see available targeted offers.</p>
+        <div class="mt-4 flex items-center justify-center gap-2">
+          <button id="resetOfferFiltersBtn" class="px-4 py-1.5 rounded-lg bg-surface-container-high text-on-surface text-xs font-semibold">Reset Filters</button>
+          <button id="offersGoToWalletBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold">Go to Wallet</button>
+        </div>
+      </div>
+
+
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 3: WALLET & BEST CARD ENGINE                                 -->
+    <!-- ================================================================= -->
+    <section id="viewWallet" class="space-y-8 hidden">
+      <!-- Title & Active Wallet Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-secondary">
+            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+            <span>SYNCHRONIZED LEDGER</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-headline font-bold text-on-surface mt-1">
+            Active Wallet <span id="walletCardsLoadedCount" class="text-outline text-lg font-normal font-mono">(4 Cards Loaded)</span>
+          </h1>
+        </div>
+        <button id="addCardBtn" class="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-2 self-start sm:self-auto">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Add Card</span>
+        </button>
+      </div>
+
+      <!-- Active Cards Carousel / Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="walletCardsContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- BROWSE & ADD POPULAR CARDS (Chase, Amex, Discover, Capital One, Citi, Bilt) -->
+      <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-highest/40">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary-container text-[18px]">credit_card</span>
+              <h3 class="font-headline font-semibold text-base text-on-surface">Browse & Add Popular Cards</h3>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Click any card to immediately add or remove it from your active wallet.</p>
+          </div>
+          <!-- Issuer filter tabs -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1" id="issuerFilterTabs">
+            <button data-issuer="all" class="issuer-tab active px-2.5 py-1 rounded text-xs font-mono bg-primary-container text-on-primary-container font-semibold">All Cards</button>
+            <button data-issuer="Chase" class="issuer-tab px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Chase</button>
+            <button data-issuer="American Express" class="issuer-tab px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Amex</button>
+            <button data-issuer="Capital One" class="issuer-tab px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Capital One</button>
+            <button data-issuer="Discover" class="issuer-tab px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Discover</button>
+            <button data-issuer="Citi" class="issuer-tab px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Citi</button>
+          </div>
+        </div>
+
+        <!-- Popular cards grid for 1-click addition -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="popularCardsPickerGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- BEST CARD FOR EACH SPEND CATEGORY -->
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg sm:text-xl font-headline font-bold text-on-surface">Best Card For Each Spend Category</h2>
+            <span class="px-2 py-0.5 rounded bg-surface-container-high text-[10px] font-mono text-outline uppercase tracking-wider">MAX ACCRUAL</span>
+          </div>
+          <span class="text-xs font-mono text-secondary">Automatic Routing • Dynamic Yield</span>
+        </div>
+
+        <!-- 8 Category Multiplier Matrix Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="bestCardsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- LIVE SPEND ROUTER / SWIPE ADVISOR -->
+      <div class="bg-surface-container-low rounded-xl p-6 border border-surface-container-highest/40 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary-container">alt_route</span>
+            <h3 class="font-headline font-semibold text-base text-on-surface">Live Spend Router & Swipe Advisor</h3>
+          </div>
+          <span class="text-[11px] font-mono text-outline">Deterministic Evaluation</span>
+        </div>
+        
+        <p class="text-xs text-on-surface-variant">
+          Type any merchant or purchase type below. PerkPulse evaluates your active wallet cards to determine which physical card gives the highest point multiplier or cash back rate, and cross-checks active targeted merchant offers.
+        </p>
+
+        <div class="relative">
+          <span class="material-symbols-outlined absolute left-3.5 top-3 text-outline text-[18px]">search</span>
+          <input type="text" id="spendRouterInput" placeholder="Try 'Shake Shack', 'Delta Airlines', 'Kroger', 'Uber', 'Costco', 'Exxon'..." class="w-full pl-10 pr-4 py-2.5 rounded-lg bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container text-sm text-on-surface placeholder:text-outline outline-none"/>
+        </div>
+
+        <!-- Spend Router Result Box -->
+        <div id="spendRouterResult" class="hidden p-4 rounded-xl bg-surface-container border border-primary-container/30 transition-all">
+          <!-- Dynamic output -->
+        </div>
+      </div>
+
+      <!-- Client-Side Privacy Notice -->
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-outline">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[18px]">verified</span>
+          <span class="font-medium text-on-surface">100% Client-Side — No Bank Logins Ever Required</span>
+        </div>
+        <span>Deterministic rule evaluation based purely on local card portfolio profile.</span>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 4: CARD PERKS & STATEMENT CREDITS LEDGER                     -->
+    <!-- ================================================================= -->
+    <section id="viewPerks" class="space-y-8 hidden">
+      <!-- Title & Audit Cycle Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-primary-container">
+            <span>AUDIT CYCLE — 2026-2027</span>
+            <span>//</span>
+            <span id="perksActiveCardsLabel" class="text-secondary">3 ACTIVE CARDS</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-headline font-bold text-on-surface mt-1">Perk Value Ledger</h1>
+        </div>
+
+        <!-- Annual vs Monthly Toggle -->
+        <div class="inline-flex p-1 rounded-lg bg-surface-container-lowest border border-surface-container-highest/60 text-xs">
+          <button id="perkAnnualViewBtn" class="px-3 py-1.5 rounded-md font-medium transition-all bg-surface-container-high text-primary-container shadow-sm">
+            Annual Overview
+          </button>
+          <button id="perkMonthlyViewBtn" class="px-3 py-1.5 rounded-md font-medium text-on-surface-variant hover:text-on-surface transition-all">
+            Monthly Run-Rate
+          </button>
+        </div>
+      </div>
+
+      <!-- Top 3 Ledger Metric Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Annual Statement Credits -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">ANNUAL STATEMENT CREDITS</span>
+            <span class="text-xs font-mono text-outline">Gross Value</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-primary-container font-mono-metric" id="perksStatementCredits">$2,145</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span id="perksDistinctCount">9 distinct recurring perks</span>
+              <span class="text-secondary font-medium">100% Unlocked</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Combined Annual Fees -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">COMBINED ANNUAL FEES</span>
+            <span class="text-xs font-mono text-outline">Sunk Cost</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-on-surface font-mono-metric" id="perksAnnualFees">$1,290</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span>Amex + Chase + Capital One</span>
+              <span class="font-mono" id="perksMonthlyFee">$107.50/mo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Annual Surplus -->
+        <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-medium">NET ANNUAL SURPLUS</span>
+            <span class="text-xs font-mono text-secondary font-medium" id="perksEfficiency">Efficiency: +166%</span>
+          </div>
+          <div class="mt-4">
+            <div class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-secondary font-mono-metric" id="perksNetSurplus">+$855</div>
+            <div class="flex items-center justify-between text-xs mt-2 text-outline">
+              <span>Total ROI ahead of renewal</span>
+              <span class="text-secondary font-semibold uppercase tracking-wider text-[11px]">Positive Carry</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Net Return Spread Bar -->
+      <div class="bg-surface-container-low rounded-xl p-5 border border-surface-container-highest/40 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary-container">
+              <span class="material-symbols-outlined text-[18px]">account_balance</span>
+            </div>
+            <div>
+              <div class="font-headline font-semibold text-sm text-on-surface">Net Return Spread</div>
+              <div class="text-xs text-outline">Every dollar committed generates $1.66 in audited statement offsets</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <span class="text-outline">Fees (<span id="spreadFeesLabel">$1,290</span>)</span>
+            <span class="text-secondary font-semibold">Surplus (+<span id="spreadSurplusLabel">$855</span>)</span>
+          </div>
+        </div>
+
+        <!-- Visual Multi-segment Bar -->
+        <div class="w-full h-2.5 rounded-full bg-surface-container-highest overflow-hidden flex">
+          <div id="spreadFeeBar" class="h-full bg-outline-variant" style="width: 60%"></div>
+          <div id="spreadSurplusBar" class="h-full bg-secondary" style="width: 40%"></div>
+        </div>
+      </div>
+
+      <!-- Card Perk Breakdown Cards (3 Columns) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="perksCardColumns">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Aggregate Travel Protections & Privileges -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase tracking-wider text-outline font-semibold">AGGREGATE TRAVEL PROTECTIONS & PRIVILEGES</span>
+          <span class="text-[11px] font-mono text-outline">Tier: Premium Multi-Card Stack</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="protectionsGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Slide-out Merchant Offer Intelligence Drawer -->
+  <div id="drawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div id="infoDrawer" class="fixed inset-y-0 right-0 max-w-md w-full bg-surface-container-low border-l border-surface-container-highest shadow-2xl p-6 flex flex-col justify-between transform translate-x-full overflow-y-auto">
+      <div>
+        <!-- Drawer Header -->
+        <div class="flex items-start justify-between pb-4 border-b border-surface-container-highest/50">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container shrink-0 font-bold text-lg font-headline" id="modalMerchantInitial">
+              M
+            </div>
+            <div>
+              <span class="text-[10px] font-mono uppercase tracking-widest text-outline">Offer Intelligence Sheet</span>
+              <h2 class="text-xl font-headline font-bold text-on-surface mt-0.5" id="modalMerchant">Marriott Bonvoy</h2>
+              <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-mono" id="modalCard">Amex Platinum</span>
+            </div>
+          </div>
+          <button id="closeDrawerBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <!-- Core Reward Metric -->
+        <div class="my-5 p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-mono uppercase tracking-wider text-secondary flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">verified</span>
+              <span>TARGETED STATEMENT REBATE</span>
+            </div>
+            <div class="text-3xl font-bold font-mono-metric text-primary-container mt-1" id="modalBenefit">$60 BACK</div>
+            <div class="text-xs text-outline mt-0.5" id="modalSubtitle">Spend $300+ in single or combined purchases</div>
+          </div>
+        </div>
+
+        <!-- Spend & ROI Chips -->
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <div class="p-3 rounded-lg bg-surface-container-high/50 border border-surface-container-highest/40">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-outline">Minimum Spend</span>
+            <div class="text-sm font-semibold font-mono-metric text-on-surface mt-0.5" id="modalMinSpend">$300.00 USD</div>
+            <div class="text-[10px] text-outline mt-0.5">Before taxes & resort charges</div>
+          </div>
+          <div class="p-3 rounded-lg bg-surface-container-high/50 border border-surface-container-highest/40">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-outline">Effective ROI</span>
+            <div class="text-sm font-semibold font-mono-metric text-secondary mt-0.5" id="modalRate">20.0% Max ROI</div>
+            <div class="text-[10px] text-outline mt-0.5">Plus standard card multiplier</div>
+          </div>
+        </div>
+
+        <!-- Expiration & Status -->
+        <div class="flex items-center gap-2 mb-5">
+          <span class="px-2.5 py-1 rounded bg-tertiary-container/10 border border-tertiary-container/30 text-tertiary-container text-xs font-mono flex items-center gap-1" id="modalExpiryBadge">
+            <span class="material-symbols-outlined text-[14px]">schedule</span>
+            <span id="modalExpiry">Expires in 18 hours (Oct 31, 2026)</span>
+          </span>
+          <span class="px-2.5 py-1 rounded bg-secondary-container/10 border border-secondary-container/30 text-secondary text-xs font-mono flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">check</span>
+            <span>Public Offer Live</span>
+          </span>
+        </div>
+
+        <!-- Eligible Properties / Details -->
+        <div class="space-y-4 text-xs">
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-primary-container text-[16px]">domain</span>
+              <span>Eligible Properties & Channels</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5" id="modalTerms">
+              Valid at participating merchant portfolio properties or official direct web portal.
+            </p>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-error text-[16px]">cancel</span>
+              <span>Strict Exclusions & Fine Print</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5" id="modalFinePrint">
+              Third-party online travel agencies (Expedia, Booking.com, Priceline) are excluded.
+            </p>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-secondary text-[16px]">layers</span>
+              <span>Point Stacking Strategy</span>
+            </div>
+            <p class="text-secondary font-mono leading-relaxed pl-5 text-[11px]" id="modalStacking">
+              Combine base card points with merchant loyalty program for maximized yield.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drawer Footer Actions -->
+      <div class="pt-6 border-t border-surface-container-highest/50 space-y-2 mt-6">
+        <a id="modalDirectLink" href="#" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 rounded-lg bg-primary-container text-on-primary-container font-semibold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+          <span>Book or Shop at Merchant</span>
+          <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+        </a>
+        <button id="dismissDrawerBtn" class="w-full py-2 rounded-lg text-outline hover:text-on-surface text-xs font-medium transition-colors">
+          Close Details
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-out Card Perks & Credits Intelligence Drawer -->
+  <div id="perkDrawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div id="perkDrawer" class="fixed inset-y-0 right-0 max-w-lg w-full bg-surface-container-low border-l border-surface-container-highest shadow-2xl p-6 flex flex-col justify-between transform translate-x-full overflow-y-auto">
+      <div>
+        <!-- Drawer Header -->
+        <div class="flex items-start justify-between pb-4 border-b border-surface-container-highest/50">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container shrink-0 font-bold text-lg font-headline" id="perkDrawerInitial">
+              A
+            </div>
+            <div>
+              <span class="text-[10px] font-mono uppercase tracking-widest text-outline">Card Benefits & Credits Audit</span>
+              <h2 class="text-xl font-headline font-bold text-on-surface mt-0.5" id="perkDrawerCardName">The Platinum Card®</h2>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="px-2 py-0.5 rounded text-xs font-mono" id="perkDrawerNetworkBadge">Amex</span>
+                <span class="text-xs text-outline font-mono" id="perkDrawerFeeBadge">Fee: $695/yr</span>
+              </div>
+            </div>
+          </div>
+          <button id="closePerkDrawerBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <!-- Hero Credit Metric -->
+        <div class="my-5 p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-mono uppercase tracking-wider text-secondary flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">verified</span>
+              <span>TOTAL ANNUAL CREDITS VALUE</span>
+            </div>
+            <div class="text-3xl font-bold font-mono-metric text-primary-container mt-1" id="perkDrawerTotalCredits">$1,594</div>
+            <div class="text-xs text-secondary mt-0.5" id="perkDrawerNetROI">+$899 Net Annual Surplus above Fee</div>
+          </div>
+        </div>
+
+        <!-- Itemized Credits Breakdown List -->
+        <div class="space-y-3 mb-6">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono uppercase tracking-wider text-outline font-semibold">Available Statement Credits</span>
+            <span class="text-[11px] font-mono text-outline" id="perkDrawerCreditCount">8 distinct perks</span>
+          </div>
+          <div class="space-y-2 divide-y divide-surface-container-highest/20" id="perkDrawerCreditsList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Built-in Card Protections & Privileges -->
+        <div class="space-y-3 mb-6 pt-4 border-t border-surface-container-highest/40">
+          <span class="text-xs font-mono uppercase tracking-wider text-outline font-semibold">Built-in Protections & Access</span>
+          <div class="space-y-1.5" id="perkDrawerProtectionsList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Multipliers Summary -->
+        <div class="space-y-3 mb-6 pt-4 border-t border-surface-container-highest/40">
+          <span class="text-xs font-mono uppercase tracking-wider text-outline font-semibold">Reward Multipliers</span>
+          <div class="grid grid-cols-2 gap-2" id="perkDrawerMultipliersGrid">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Drawer Footer Actions -->
+      <div class="pt-4 border-t border-surface-container-highest/50 space-y-2 mt-6">
+        <button id="perkDrawerToggleWalletBtn" class="w-full py-2.5 rounded-lg bg-primary-container text-on-primary-container font-semibold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+          <span>Toggle in Active Wallet</span>
+        </button>
+        <button id="dismissPerkDrawerBtn" class="w-full py-2 rounded-lg text-outline hover:text-on-surface text-xs font-medium transition-colors">
+          Close Breakdown
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-out Category Promo Rule Drawer -->
+  <div id="ruleDrawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div id="ruleDrawer" class="fixed inset-y-0 right-0 max-w-lg w-full bg-surface-container-low border-l border-surface-container-highest shadow-2xl p-6 flex flex-col justify-between transform translate-x-full overflow-y-auto">
+      <div>
+        <!-- Drawer Header -->
+        <div class="flex items-start justify-between pb-4 border-b border-surface-container-highest/50">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary-container shrink-0 font-bold text-lg font-headline" id="ruleDrawerIconContainer">
+              <span class="material-symbols-outlined text-2xl" id="ruleDrawerIcon">restaurant</span>
+            </div>
+            <div>
+              <span class="text-[10px] font-mono uppercase tracking-widest text-outline" id="ruleDrawerTag">FOOD // CATEGORY INTELLIGENCE</span>
+              <h2 class="text-xl font-headline font-bold text-on-surface mt-0.5" id="ruleDrawerTitle">Dining & Restaurants</h2>
+              <span class="text-xs text-outline mt-0.5 block" id="ruleDrawerSubtitle">Worldwide eateries, bars & delivery</span>
+            </div>
+          </div>
+          <button id="closeRuleDrawerBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <!-- Top Card Winning Rate -->
+        <div class="my-5 p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between">
+          <div>
+            <div class="text-[10px] font-mono uppercase tracking-wider text-secondary flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">star</span>
+              <span id="ruleDrawerCardHeaderLabel">TOP EARNING CARD IN WALLET</span>
+            </div>
+            <div class="text-2xl font-bold font-mono-metric text-primary-container mt-1" id="ruleDrawerWinningCard">American Express® Gold Card</div>
+            <div class="text-xs text-outline mt-0.5" id="ruleDrawerRateText">4.0x Membership Rewards Points</div>
+          </div>
+          <div class="text-3xl font-bold font-mono-metric text-secondary" id="ruleDrawerBigRate">
+            4.0x
+          </div>
+        </div>
+
+        <!-- Rule Strategy & Conditions -->
+        <div class="space-y-4 text-xs">
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-primary-container text-[16px]">verified</span>
+              <span>Exact Cashback / Point Multiplier Rule</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5 bg-surface-container-lowest p-3 rounded-lg border border-surface-container-highest/30 font-mono text-[11px]" id="ruleDrawerExactRule">
+              4x on restaurants worldwide plus takeout and delivery in the US.
+            </p>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-tertiary-container text-[16px]">hourglass_empty</span>
+              <span>Spend Caps, Limits & Reset Frequency</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5" id="ruleDrawerCaps">
+              No cap for dining worldwide. Supermarkets capped at $25k/yr.
+            </p>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+              <span>Eligible & Qualifying Merchants</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5" id="ruleDrawerInclusions">
+              Sit-down restaurants, fast food, cafes, bars, UberEats, DoorDash, Grubhub.
+            </p>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-1.5 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-error text-[16px]">cancel</span>
+              <span>Merchant Exclusions & Gotchas</span>
+            </div>
+            <p class="text-on-surface-variant leading-relaxed pl-5" id="ruleDrawerExclusions">
+              Restaurants inside hotels/casinos billed directly to rooms, catering services, convenience stores.
+            </p>
+          </div>
+
+          <!-- Ranked Cards in Wallet -->
+          <div class="pt-3 border-t border-surface-container-highest/40">
+            <span class="text-xs font-mono uppercase tracking-wider text-outline font-semibold mb-2 block">Cards Ranked for This Category</span>
+            <div class="space-y-2" id="ruleDrawerWalletRankings">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drawer Footer Actions -->
+      <div class="pt-4 border-t border-surface-container-highest/50 mt-6">
+        <button id="dismissRuleDrawerBtn" class="w-full py-2 rounded-lg text-outline hover:text-on-surface text-xs font-medium transition-colors">
+          Close Rule Details
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Selection Modal (Add Card to Wallet) -->
+  <div id="walletModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center p-4">
+    <div class="bg-surface-container-low border border-surface-container-highest rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-surface-container-highest flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-primary-container">Wallet Portfolio Manager</span>
+          <h2 class="text-lg font-headline font-bold text-on-surface mt-0.5">Select Cards in Your Active Wallet</h2>
+          <p class="text-xs text-outline mt-0.5">Check the cards you currently own. PerkPulse dynamically recalibrates your best spend categories.</p>
+        </div>
+        <button id="closeWalletModalBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Card Selection List -->
+      <div class="p-5 overflow-y-auto space-y-3 divide-y divide-surface-container-highest/30" id="cardSelectionList">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-surface-container-highest bg-surface-container-lowest flex items-center justify-between">
+        <div class="text-xs text-outline">
+          <span id="modalSelectedCount" class="font-mono text-secondary font-semibold">4</span> cards selected
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="selectAllCardsBtn" class="px-3 py-1.5 rounded-lg border border-surface-container-highest text-xs text-on-surface hover:bg-surface-container transition-colors">Select All</button>
+          <button id="applyWalletCardsBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity">Apply to Wallet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-16 opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-xl bg-surface-container-high border border-primary-container/40 text-on-surface text-xs font-mono flex items-center gap-2 shadow-2xl">
+    <span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+    <span id="toastMsg">Wallet synchronized</span>
+  </div>
+
+  <!-- Minimal Footer -->
+  <footer class="mt-auto py-6 border-t border-surface-container-highest/40 bg-surface-container-lowest">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-outline">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-on-surface">PerkPulse</span>
+        <span>•</span>
+        <span>Minimal Spend & Perk Engine</span>
+      </div>
+      <div>Zero banking info attached • 100% Client-side public data</div>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

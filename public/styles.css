@@ -1,0 +1,122 @@
+/* PerkPulse Terminal & Modern Swiss Utility Styles */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+:root {
+  --bg-canvas: #090D16;
+  --bg-surface: #0b1326;
+  --bg-surface-subtle: #0f172a;
+  --bg-surface-raised: #1e293b;
+  --border-subtle: #1e293b;
+  --border-strong: #334155;
+  --accent-cyan: #38bdf8;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-crimson: #ef4444;
+}
+
+body {
+  background-color: var(--bg-surface);
+  color: #dae2fd;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+}
+
+/* Tabular lining figures for numbers & rates */
+.font-mono-metric,
+.tabular-nums,
+[data-metric] {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.font-headline {
+  font-family: 'Geist', sans-serif !important;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Glassmorphic elements */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Card network badges */
+.badge-amex {
+  background: rgba(0, 111, 207, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(0, 111, 207, 0.4);
+}
+
+.badge-chase {
+  background: rgba(10, 47, 110, 0.25);
+  color: #93c5fd;
+  border: 1px solid rgba(10, 47, 110, 0.5);
+}
+
+.badge-capone {
+  background: rgba(208, 48, 39, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(208, 48, 39, 0.4);
+}
+
+.badge-discover {
+  background: rgba(255, 96, 0, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(255, 96, 0, 0.4);
+}
+
+.badge-citi {
+  background: rgba(0, 59, 112, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(0, 59, 112, 0.4);
+}
+
+.badge-bilt {
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  border: 1px solid #475569;
+}
+
+/* Smooth Slide Drawer Transitions */
+#drawerOverlay {
+  transition: opacity 0.25s ease-in-out;
+}
+
+#infoDrawer {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Shimmer animation for skeleton loader */
+@keyframes shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite ease-in-out;
+}

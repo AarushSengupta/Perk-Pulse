@@ -1,0 +1,110 @@
+{
+  "ledgerSummary": {
+    "auditCycle": "2026-2027",
+    "annualStatementCredits": 2145,
+    "combinedAnnualFees": 1290,
+    "netAnnualSurplus": 855,
+    "efficiencyRate": 166,
+    "positiveCarry": true,
+    "monthlySunkCost": 107.50
+  },
+  "cardLedgers": [
+    {
+      "cardId": "amex-plat",
+      "name": "The Platinum Card®",
+      "issuer": "American Express",
+      "annualFee": 695,
+      "totalCreditsValue": 1594,
+      "netOffset": 899,
+      "credits": [
+        { "name": "Hotel Credit", "value": 200, "frequency": "Annual", "used": 200, "remaining": 0, "status": "100% Unlocked", "desc": "$200 back on prepaid Fine Hotels + Resorts or The Hotel Collection" },
+        { "name": "Digital Ent.", "value": 240, "frequency": "$20/mo", "used": 180, "remaining": 60, "status": "Active", "desc": "Disney+, Hulu, ESPN+, Peacock, NYT, WSJ" },
+        { "name": "Airline Incidental", "value": 200, "frequency": "Annual", "used": 150, "remaining": 50, "status": "Enrolled (United)", "desc": "$200 airline fee credit on chosen qualifying airline" },
+        { "name": "Uber Cash", "value": 200, "frequency": "$15/mo + $35 Dec", "used": 165, "remaining": 35, "status": "VIP Active", "desc": "VIP status + monthly rides/eats credit" },
+        { "name": "CLEAR® Plus", "value": 199, "frequency": "Annual", "used": 199, "remaining": 0, "status": "Active", "desc": "Full annual CLEAR membership statement rebate" },
+        { "name": "Saks Fifth Ave", "value": 100, "frequency": "$50 Semi-Annual", "used": 50, "remaining": 50, "status": "H2 Active", "desc": "$50 Jan-Jun and $50 Jul-Dec" },
+        { "name": "Equinox Credit", "value": 300, "frequency": "Annual", "used": 0, "remaining": 300, "status": "Available", "desc": "Eligible Equinox gym or Equinox+ app membership" },
+        { "name": "Walmart+ Credit", "value": 155, "frequency": "$12.95/mo", "used": 155, "remaining": 0, "status": "Active", "desc": "Monthly Walmart+ membership rebate" }
+      ]
+    },
+    {
+      "cardId": "chase-csr",
+      "name": "Sapphire Reserve®",
+      "issuer": "Chase J.P. Morgan",
+      "annualFee": 550,
+      "totalCreditsValue": 720,
+      "netOffset": 170,
+      "credits": [
+        { "name": "Travel Credit", "value": 300, "frequency": "Annual", "used": 300, "remaining": 0, "status": "Instant Wipe (Complete)" },
+        { "name": "Priority Pass Select", "value": 469, "frequency": "Included", "used": 469, "remaining": 0, "status": "Included Unlimited" },
+        { "name": "Global Entry Credit", "value": 120, "frequency": "4 Years", "used": 120, "remaining": 0, "status": "$120 / 4yr" },
+        { "name": "DoorDash DashPass", "value": 180, "frequency": "Annual", "used": 90, "remaining": 90, "status": "$5 / mo Promos" }
+      ]
+    },
+    {
+      "cardId": "capone-venture-x",
+      "name": "Venture X",
+      "issuer": "Capital One",
+      "annualFee": 395,
+      "totalCreditsValue": 400,
+      "netOffset": 5,
+      "credits": [
+        { "name": "Portal Travel Credit", "value": 300, "frequency": "Annual", "used": 100, "remaining": 200, "status": "$300 Baseline" },
+        { "name": "Anniversary Miles", "value": 100, "frequency": "Annual", "used": 100, "remaining": 0, "status": "10k ($100 Value)" },
+        { "name": "C1 Lounge + Plaza", "value": 350, "frequency": "Included", "used": 350, "remaining": 0, "status": "Unlimited Access" },
+        { "name": "Hertz President's Circle", "value": 200, "frequency": "Included", "used": 200, "remaining": 0, "status": "Top-Tier Status" }
+      ]
+    },
+    {
+      "cardId": "amex-gold",
+      "name": "American Express® Gold Card",
+      "issuer": "American Express",
+      "annualFee": 325,
+      "totalCreditsValue": 424,
+      "netOffset": 99,
+      "credits": [
+        { "name": "Dining Credit", "value": 120, "frequency": "$10/mo", "used": 90, "remaining": 30, "status": "Active", "desc": "Grubhub, Cheesecake Factory, Goldbelly, Wine.com, Five Guys" },
+        { "name": "Uber Cash", "value": 120, "frequency": "$10/mo", "used": 90, "remaining": 30, "status": "VIP Active", "desc": "$10/mo for Uber Eats orders or Uber rides" },
+        { "name": "Resy Credit", "value": 100, "frequency": "$50 Semi-Annual", "used": 50, "remaining": 50, "status": "H2 Active", "desc": "$50 semi-annually at eligible Resy restaurants" },
+        { "name": "Dunkin' Credit", "value": 84, "frequency": "$7/mo", "used": 63, "remaining": 21, "status": "Active", "desc": "Monthly statement credit at US Dunkin' locations" }
+      ]
+    },
+    {
+      "cardId": "amex-bcp",
+      "name": "Blue Cash Preferred®",
+      "issuer": "American Express",
+      "annualFee": 95,
+      "totalCreditsValue": 120,
+      "netOffset": 25,
+      "credits": [
+        { "name": "Disney Bundle Credit", "value": 120, "frequency": "$10/mo", "used": 90, "remaining": 30, "status": "Active", "desc": "$10/mo statement credit ($120/yr) after spending $9.99+ on Disney+ or Hulu bundle" }
+      ]
+    }
+  ],
+  "protections": [
+    {
+      "id": "lounge",
+      "title": "Lounge Access",
+      "icon": "flight",
+      "subtitle": "Centurion + Priority Pass + C1 Lounges",
+      "highlight": "1,400+ airport locations globally",
+      "details": "Full global terminal network coverage with guest privileges across Amex Centurion Lounges, Capital One Lounges, Sapphire Lounges by The Club, and Priority Pass Select."
+    },
+    {
+      "id": "car-rental",
+      "title": "Primary Car Rental",
+      "icon": "directions_car",
+      "subtitle": "$75,000 theft & damage coverage",
+      "highlight": "Zero personal policy deductible",
+      "details": "Provides collision damage and theft protection up to actual cash value for most rental vehicles, bypassing your personal automobile policy entirely."
+    },
+    {
+      "id": "tsa-ge",
+      "title": "TSA / Global Entry",
+      "icon": "security",
+      "subtitle": "$120 statement credit every 4 yrs",
+      "highlight": "Valid for authorized users",
+      "details": "Receive a statement credit up to $120 every 4 years after charging the Global Entry, TSA PreCheck®, or NEXUS application fee to an eligible premium account."
+    }
+  ]
+}

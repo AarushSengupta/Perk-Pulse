@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" fill="none">
+  <rect width="32" height="32" y="4" rx="7" fill="#0284c7" />
+  <rect x="6" y="10" width="20" height="13" rx="2.5" stroke="#ffffff" stroke-width="2" fill="none" />
+  <path d="M6 15H26" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="11" cy="19" r="1.5" fill="#38bdf8" />
+  <path d="M22 6L26 10L22 14" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+  <text x="42" y="25" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" letter-spacing="-0.02em">Perk<tspan fill="#38bdf8">Pulse</tspan></text>
+</svg>
