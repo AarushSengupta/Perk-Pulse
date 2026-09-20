@@ -70,7 +70,13 @@ const state = {
   quarterlyData: null,
   quarterlyActivations: {}, // { 'chase-cff': true, 'discover-it': true }
   spendCaps: {}, // { 'amex-gold-groceries': 0, 'chase-cff-quarterly': 0, ... }
-  selectedQuarter: 'Q3'
+  selectedQuarter: 'Q3',
+
+  // Chase 5/24 Velocity Tracker
+  fiveTwentyFour: [], // [ { id, cardName, issuer, date, isPersonal } ]
+
+  // Custom Merchant Spend Overrides
+  merchantOverrides: [] // [ { id, merchant, cardId, cardName, note } ]
 };
 
 // =========================================================================
@@ -83,14 +89,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadSubsFromStorage();
   loadQuarterlyFromStorage();
   loadSpendCapsFromStorage();
+  loadFiveTwentyFourFromStorage();
+  loadMerchantOverridesFromStorage();
   setupNavigation();
   setupOfferControls();
   setupWalletControls();
   setupPerksControls();
   setupCppControls();
   setupSubControls();
+  setupBackupControls();
+  setupFiveTwentyFourControls();
+  setupMerchantOverrideControls();
   setupDrawer();
   setupSpendRouter();
+  registerServiceWorker();
   startRefreshTimer();
 
   await Promise.all([
@@ -151,6 +163,46 @@ function saveSubsToStorage() {
     localStorage.setItem('perkpulse_active_subs', JSON.stringify(state.activeSubs));
   } catch (e) {
     console.error('Error saving SUB state:', e);
+  }
+}
+
+function loadFiveTwentyFourFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_five_twenty_four');
+    state.fiveTwentyFour = saved ? JSON.parse(saved) : [
+      { id: '524-1', cardName: 'American Express® Gold Card', issuer: 'American Express', date: '2025-04-12', isPersonal: true },
+      { id: '524-2', cardName: 'Chase Sapphire Preferred®', issuer: 'Chase', date: '2025-08-20', isPersonal: true },
+      { id: '524-3', cardName: 'Capital One Venture X', issuer: 'Capital One', date: '2026-01-15', isPersonal: true }
+    ];
+  } catch (e) {
+    state.fiveTwentyFour = [];
+  }
+}
+
+function saveFiveTwentyFourToStorage() {
+  try {
+    localStorage.setItem('perkpulse_five_twenty_four', JSON.stringify(state.fiveTwentyFour));
+  } catch (e) {
+    console.error('Error saving 5/24 state:', e);
+  }
+}
+
+function loadMerchantOverridesFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_merchant_overrides');
+    state.merchantOverrides = saved ? JSON.parse(saved) : [
+      { id: 'rule-costco', merchant: 'Costco', cardId: 'citi-double-cash', cardName: 'Citi Double Cash®', note: 'Costco only accepts Visa in-store; use 2% catch-all.' }
+    ];
+  } catch (e) {
+    state.merchantOverrides = [];
+  }
+}
+
+function saveMerchantOverridesToStorage() {
+  try {
+    localStorage.setItem('perkpulse_merchant_overrides', JSON.stringify(state.merchantOverrides));
+  } catch (e) {
+    console.error('Error saving merchant overrides:', e);
   }
 }
 
@@ -1669,7 +1721,16 @@ function renderWalletView() {
   // 4. Render In-Page Popular Cards Picker
   renderPopularCardsPicker();
 
-  // 3. Render "Best Card For Each Spend Category" 8-grid
+  // 5. Render Chase 5/24 Velocity Tracker
+  renderFiveTwentyFourSection();
+
+  // 6. Render Portfolio Gap Simulator
+  renderPortfolioGapSection();
+
+  // 7. Render Custom Merchant Overrides
+  renderMerchantOverridesSection();
+
+  // 8. Render "Best Card For Each Spend Category" 8-grid
   const cppEncoded = encodeURIComponent(JSON.stringify(state.cppValuations));
   fetch(`/api/wallet/best-cards?walletCards=${state.walletCards.join(',')}&yieldMode=${state.yieldMode}&cppRates=${cppEncoded}`)
     .then(r => r.json())
@@ -2041,6 +2102,593 @@ function renderSpendCapsSection() {
 }
 
 // =========================================================================
+// PWA & OFFLINE SERVICE WORKER
+// =========================================================================
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .catch(err => console.log('Service worker registration note:', err));
+    });
+  }
+}
+
+// =========================================================================
+// PORTFOLIO BACKUP & PORTABILITY (JSON EXPORT / RESTORE)
+// =========================================================================
+function setupBackupControls() {
+  const modalOverlay = document.getElementById('backupModalOverlay');
+  const openBtn = document.getElementById('openBackupModalBtn');
+  const closeBtn = document.getElementById('closeBackupModalBtn');
+  const dismissBtn = document.getElementById('dismissBackupModalBtn');
+  const exportBtn = document.getElementById('exportBackupBtn');
+  const triggerImportBtn = document.getElementById('triggerImportBackupBtn');
+  const fileInput = document.getElementById('importBackupFileInput');
+
+  function openModal() {
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+  function closeModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (dismissBtn) dismissBtn.addEventListener('click', closeModal);
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const backupData = {
+        version: '2.0.0',
+        exportedAt: new Date().toISOString(),
+        walletCards: state.walletCards,
+        customCards: state.customCards,
+        claimedCredits: state.claimedCredits,
+        activeSubs: state.activeSubs,
+        cppValuations: state.cppValuations,
+        quarterlyActivations: state.quarterlyActivations,
+        spendCaps: state.spendCaps,
+        fiveTwentyFour: state.fiveTwentyFour,
+        merchantOverrides: state.merchantOverrides
+      };
+
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `perkpulse-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Portfolio backup exported (.json)!');
+    });
+  }
+
+  if (triggerImportBtn && fileInput) {
+    triggerImportBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target?.result);
+          if (!parsed || typeof parsed !== 'object') throw new Error('Invalid JSON structure');
+
+          if (Array.isArray(parsed.walletCards)) {
+            state.walletCards = parsed.walletCards;
+            saveWalletToStorage();
+          }
+          if (Array.isArray(parsed.customCards)) {
+            state.customCards = parsed.customCards;
+            saveCustomCardsToStorage();
+          }
+          if (parsed.claimedCredits && typeof parsed.claimedCredits === 'object') {
+            state.claimedCredits = parsed.claimedCredits;
+            saveClaimedCreditsToStorage();
+          }
+          if (Array.isArray(parsed.activeSubs)) {
+            state.activeSubs = parsed.activeSubs;
+            saveSubsToStorage();
+          }
+          if (parsed.cppValuations && typeof parsed.cppValuations === 'object') {
+            state.cppValuations = parsed.cppValuations;
+            saveCppToStorage();
+          }
+          if (parsed.quarterlyActivations && typeof parsed.quarterlyActivations === 'object') {
+            state.quarterlyActivations = parsed.quarterlyActivations;
+            saveQuarterlyToStorage();
+          }
+          if (parsed.spendCaps && typeof parsed.spendCaps === 'object') {
+            state.spendCaps = parsed.spendCaps;
+            saveSpendCapsToStorage();
+          }
+          if (Array.isArray(parsed.fiveTwentyFour)) {
+            state.fiveTwentyFour = parsed.fiveTwentyFour;
+            saveFiveTwentyFourToStorage();
+          }
+          if (Array.isArray(parsed.merchantOverrides)) {
+            state.merchantOverrides = parsed.merchantOverrides;
+            saveMerchantOverridesToStorage();
+          }
+
+          state.allCards = [...state.allCards.filter(c => !c.isCustom), ...state.customCards];
+
+          closeModal();
+          showToast('Portfolio restored successfully from backup!');
+          renderAllViews();
+        } catch (err) {
+          console.error('Backup import error:', err);
+          showToast('Failed to parse backup JSON file');
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
+// =========================================================================
+// CHASE 5/24 VELOCITY TRACKER
+// =========================================================================
+function setupFiveTwentyFourControls() {
+  const modalOverlay = document.getElementById('fiveTwentyFourModalOverlay');
+  const closeBtn = document.getElementById('closeFiveTwentyFourModalBtn');
+  const cancelBtn = document.getElementById('cancelFiveTwentyFourBtn');
+  const saveBtn = document.getElementById('saveFiveTwentyFourBtn');
+  const deleteBtn = document.getElementById('deleteFiveTwentyFourBtn');
+
+  function openModal(entryId = null) {
+    const titleEl = document.getElementById('fiveTwentyFourModalTitle');
+    const idInput = document.getElementById('fiveTwentyFourEntryId');
+    const cardNameInput = document.getElementById('fiveTwentyFourCardName');
+    const issuerInput = document.getElementById('fiveTwentyFourIssuer');
+    const dateInput = document.getElementById('fiveTwentyFourDate');
+    const personalCheck = document.getElementById('fiveTwentyFourPersonalCheck');
+
+    if (entryId) {
+      const entry = state.fiveTwentyFour.find(e => e.id === entryId);
+      if (entry) {
+        if (titleEl) titleEl.textContent = 'Edit Card Opening Date';
+        if (idInput) idInput.value = entry.id;
+        if (cardNameInput) cardNameInput.value = entry.cardName;
+        if (issuerInput) issuerInput.value = entry.issuer;
+        if (dateInput) dateInput.value = entry.date;
+        if (personalCheck) personalCheck.checked = entry.isPersonal !== false;
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+      }
+    } else {
+      if (titleEl) titleEl.textContent = 'Log Card Approval Date';
+      if (idInput) idInput.value = '';
+      if (cardNameInput) cardNameInput.value = '';
+      if (issuerInput) issuerInput.value = 'Chase';
+      if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+      if (personalCheck) personalCheck.checked = true;
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+    }
+
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  window.openFiveTwentyFourModal = openModal;
+  window.closeFiveTwentyFourModal = closeModal;
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const id = document.getElementById('fiveTwentyFourEntryId')?.value;
+      if (id) {
+        state.fiveTwentyFour = state.fiveTwentyFour.filter(e => e.id !== id);
+        saveFiveTwentyFourToStorage();
+        closeModal();
+        showToast('5/24 card entry removed');
+        renderFiveTwentyFourSection();
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const id = document.getElementById('fiveTwentyFourEntryId')?.value;
+      const cardName = document.getElementById('fiveTwentyFourCardName')?.value?.trim();
+      const issuer = document.getElementById('fiveTwentyFourIssuer')?.value?.trim();
+      const date = document.getElementById('fiveTwentyFourDate')?.value;
+      const isPersonal = document.getElementById('fiveTwentyFourPersonalCheck')?.checked !== false;
+
+      if (!cardName || !issuer || !date) {
+        showToast('Please enter Card Name, Issuer, and Approval Date');
+        return;
+      }
+
+      if (id) {
+        const idx = state.fiveTwentyFour.findIndex(e => e.id === id);
+        if (idx !== -1) {
+          state.fiveTwentyFour[idx] = { id, cardName, issuer, date, isPersonal };
+        }
+      } else {
+        state.fiveTwentyFour.push({
+          id: `524-${Date.now()}`,
+          cardName,
+          issuer,
+          date,
+          isPersonal
+        });
+      }
+
+      saveFiveTwentyFourToStorage();
+      closeModal();
+      showToast('5/24 velocity ledger updated');
+      renderFiveTwentyFourSection();
+    });
+  }
+}
+
+function renderFiveTwentyFourSection() {
+  const container = document.getElementById('fiveTwentyFourContainer');
+  if (!container) return;
+
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 24);
+
+  const activeEntries = (state.fiveTwentyFour || [])
+    .filter(e => e.isPersonal !== false && new Date(e.date) >= cutoff)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const count = activeEntries.length;
+  const isEligible = count < 5;
+  const slotsRemaining = Math.max(0, 5 - count);
+
+  let dropOffText = 'No cards dropping off in next 24 months';
+  if (activeEntries.length > 0) {
+    const earliest = new Date(activeEntries[0].date);
+    const dropOffDate = new Date(earliest);
+    dropOffDate.setMonth(dropOffDate.getMonth() + 24);
+    dropOffDate.setDate(1); // Chase recognizes drop-off on first day of 25th month
+    const daysUntilDrop = Math.ceil((dropOffDate - now) / (1000 * 60 * 60 * 24));
+    dropOffText = `Next slot opens ${dropOffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (${Math.max(0, daysUntilDrop)} days)`;
+  }
+
+  // Generate 5 slot pill elements
+  let slotsHtml = '';
+  for (let i = 0; i < 5; i++) {
+    const entry = activeEntries[i];
+    if (entry) {
+      slotsHtml += `
+        <div onclick="openFiveTwentyFourModal('${entry.id}')" class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/60 hover:border-primary-container cursor-pointer transition-colors space-y-1">
+          <div class="flex items-center justify-between text-[10px] font-mono text-outline">
+            <span>SLOT ${i + 1} OF 5</span>
+            <span class="text-secondary">ACTIVE</span>
+          </div>
+          <div class="font-headline font-semibold text-xs text-on-surface truncate">${entry.cardName}</div>
+          <div class="text-[10px] font-mono text-outline">${entry.date} • ${entry.issuer}</div>
+        </div>
+      `;
+    } else {
+      slotsHtml += `
+        <div onclick="openFiveTwentyFourModal()" class="p-3 rounded-xl bg-surface-container-lowest border border-dashed border-secondary/40 hover:border-secondary cursor-pointer transition-colors space-y-1 group">
+          <div class="flex items-center justify-between text-[10px] font-mono text-secondary">
+            <span>SLOT ${i + 1} OF 5</span>
+            <span>AVAILABLE</span>
+          </div>
+          <div class="font-headline font-semibold text-xs text-secondary group-hover:underline">+ Empty Slot</div>
+          <div class="text-[10px] font-mono text-outline">Open for new card</div>
+        </div>
+      `;
+    }
+  }
+
+  container.innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-highest/40">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[20px]">speed</span>
+          <h3 class="font-headline font-semibold text-base text-on-surface">Chase 5/24 Velocity Gauge</h3>
+          <span class="px-2 py-0.5 rounded ${isEligible ? 'bg-secondary/15 text-secondary border border-secondary/30' : 'bg-error/15 text-error border border-error/30'} text-[10px] font-mono font-bold">
+            ${count} / 24 (${isEligible ? `${slotsRemaining} SLOTS AVAILABLE` : 'INELIGIBLE'})
+          </span>
+        </div>
+        <p class="text-xs text-outline mt-0.5">Track personal cards opened across all banks in the past 24 months. Chase restricts approvals once you reach 5 cards.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openFiveTwentyFourModal()" class="px-3 py-1.5 rounded-lg bg-surface-container-high border border-surface-container-highest text-xs font-mono font-semibold text-on-surface hover:border-primary-container transition-colors flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[15px] text-primary-container">add_circle</span>
+          <span>+ Log Opening</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 5 Slots Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+      ${slotsHtml}
+    </div>
+
+    <!-- Status Strip -->
+    <div class="p-3 rounded-lg bg-surface-container-lowest border border-surface-container-highest/30 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono">
+      <div class="flex items-center gap-2 text-outline">
+        <span class="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+        <span>${dropOffText}</span>
+      </div>
+      <div class="${isEligible ? 'text-secondary font-semibold' : 'text-error font-semibold'}">
+        ${isEligible ? '✓ Eligible for Sapphire & Ink bonuses' : '⚠️ Application approvals restricted by Chase algorithm'}
+      </div>
+    </div>
+  `;
+}
+
+// =========================================================================
+// PORTFOLIO GAP ANALYSIS & NEXT CARD SIMULATOR
+// =========================================================================
+function renderPortfolioGapSection() {
+  const container = document.getElementById('portfolioGapContainer');
+  if (!container) return;
+
+  const userCards = state.allCards.filter(c => state.walletCards.includes(c.id));
+  const missingCards = state.allCards.filter(c => !state.walletCards.includes(c.id) && !c.isCustom);
+
+  if (missingCards.length === 0) {
+    container.innerHTML = `
+      <div class="py-6 text-center text-xs text-outline font-mono">
+        Your active wallet contains all supported catalog cards.
+      </div>
+    `;
+    return;
+  }
+
+  // Scan for missing multipliers across key categories
+  const categories = ['dining', 'groceries', 'gas', 'flights', 'everyday'];
+  const userBestRates = {};
+  categories.forEach(cat => {
+    let max = 0;
+    userCards.forEach(c => {
+      const r = c.multipliers?.[cat]?.rate || 1.0;
+      if (r > max) max = r;
+    });
+    userBestRates[cat] = max || 1.0;
+  });
+
+  // Evaluate each missing card for potential ROI lift
+  const evaluatedGaps = missingCards.map(c => {
+    let biggestLift = 0;
+    let targetCategory = 'everyday';
+
+    categories.forEach(cat => {
+      const cardRate = c.multipliers?.[cat]?.rate || 1.0;
+      const userRate = userBestRates[cat] || 1.0;
+      const lift = cardRate - userRate;
+      if (lift > biggestLift) {
+        biggestLift = lift;
+        targetCategory = cat;
+      }
+    });
+
+    const estLiftDollars = Math.round(biggestLift * 60);
+    const netROI = (c.totalCreditsValue || 0) + estLiftDollars - (c.annualFee || 0);
+
+    return {
+      card: c,
+      biggestLift,
+      targetCategory,
+      estLiftDollars,
+      netROI
+    };
+  }).sort((a, b) => b.netROI - a.netROI).slice(0, 3);
+
+  let cardsHtml = '';
+  evaluatedGaps.forEach(item => {
+    const c = item.card;
+    cardsHtml += `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/50 flex flex-col justify-between space-y-3">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-outline">${c.issuer}</span>
+            <span class="px-2 py-0.5 rounded bg-secondary/15 text-secondary text-[10px] font-mono font-bold">
+              +${item.biggestLift > 0 ? item.biggestLift.toFixed(1) + 'x' : '2.0x'} Boost
+            </span>
+          </div>
+          <h4 class="font-headline font-bold text-sm text-on-surface mt-1">${c.name}</h4>
+          <p class="text-xs text-outline mt-0.5">
+            Upgrades <strong class="text-on-surface">${item.targetCategory.toUpperCase()}</strong> return from ${userBestRates[item.targetCategory] || 1.0}x to ${c.multipliers?.[item.targetCategory]?.rate || 2.0}x.
+          </p>
+          <div class="mt-2 text-xs font-mono text-secondary">
+            Estimated Value: +$${item.netROI}/yr Net Carry
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-surface-container-highest/30 flex items-center justify-between">
+          <span class="text-xs font-mono text-outline">Fee: $${c.annualFee}/yr</span>
+          <button onclick="toggleCardInWallet('${c.id}')" class="px-3 py-1 rounded-lg bg-primary-container text-on-primary-container text-xs font-mono font-semibold hover:opacity-90 transition-opacity">
+            + Add to Wallet
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-container-highest/40">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[20px]">insights</span>
+          <h3 class="font-headline font-semibold text-base text-on-surface">Portfolio Gap Analysis & Next Card Simulator</h3>
+        </div>
+        <p class="text-xs text-outline mt-0.5">Algorithmic simulation of missing cards that maximize your net return and category coverage.</p>
+      </div>
+      <span class="text-[11px] font-mono text-secondary">Optimal Accrual Suggestions</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      ${cardsHtml}
+    </div>
+  `;
+}
+
+// =========================================================================
+// CUSTOM MERCHANT OVERRIDES & ROUTING RULES
+// =========================================================================
+function setupMerchantOverrideControls() {
+  const modalOverlay = document.getElementById('merchantOverrideModalOverlay');
+  const closeBtn = document.getElementById('closeMerchantOverrideModalBtn');
+  const cancelBtn = document.getElementById('cancelMerchantOverrideBtn');
+  const saveBtn = document.getElementById('saveMerchantOverrideBtn');
+  const deleteBtn = document.getElementById('deleteOverrideBtn');
+
+  function openModal(ruleId = null) {
+    const cardSelect = document.getElementById('overrideCardSelect');
+    if (cardSelect) {
+      cardSelect.innerHTML = '';
+      state.allCards.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name} (${c.issuer})`;
+        cardSelect.appendChild(opt);
+      });
+    }
+
+    const idInput = document.getElementById('overrideIdInput');
+    const merchantInput = document.getElementById('overrideMerchantInput');
+    const noteInput = document.getElementById('overrideNoteInput');
+
+    if (ruleId) {
+      const rule = state.merchantOverrides.find(r => r.id === ruleId);
+      if (rule) {
+        if (idInput) idInput.value = rule.id;
+        if (merchantInput) merchantInput.value = rule.merchant;
+        if (cardSelect) cardSelect.value = rule.cardId;
+        if (noteInput) noteInput.value = rule.note || '';
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+      }
+    } else {
+      if (idInput) idInput.value = '';
+      if (merchantInput) merchantInput.value = '';
+      if (noteInput) noteInput.value = '';
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+    }
+
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  window.openMerchantOverrideModal = openModal;
+  window.closeMerchantOverrideModal = closeModal;
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const id = document.getElementById('overrideIdInput')?.value;
+      if (id) {
+        state.merchantOverrides = state.merchantOverrides.filter(r => r.id !== id);
+        saveMerchantOverridesToStorage();
+        closeModal();
+        showToast('Merchant routing rule deleted');
+        renderMerchantOverridesSection();
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const id = document.getElementById('overrideIdInput')?.value;
+      const merchant = document.getElementById('overrideMerchantInput')?.value?.trim();
+      const cardId = document.getElementById('overrideCardSelect')?.value;
+      const note = document.getElementById('overrideNoteInput')?.value?.trim();
+
+      if (!merchant || !cardId) {
+        showToast('Please enter merchant keyword and select assigned card');
+        return;
+      }
+
+      const cardObj = state.allCards.find(c => c.id === cardId);
+      const cardName = cardObj ? cardObj.name : 'Credit Card';
+
+      if (id) {
+        const idx = state.merchantOverrides.findIndex(r => r.id === id);
+        if (idx !== -1) {
+          state.merchantOverrides[idx] = { id, merchant, cardId, cardName, note };
+        }
+      } else {
+        state.merchantOverrides.push({
+          id: `rule-${Date.now()}`,
+          merchant,
+          cardId,
+          cardName,
+          note: note || `Custom routing rule for ${merchant}`
+        });
+      }
+
+      saveMerchantOverridesToStorage();
+      closeModal();
+      showToast(`Custom rule saved for ${merchant}!`);
+      renderMerchantOverridesSection();
+    });
+  }
+}
+
+function renderMerchantOverridesSection() {
+  const container = document.getElementById('merchantOverridesContainer');
+  if (!container) return;
+
+  const overrides = state.merchantOverrides || [];
+
+  let rowsHtml = '';
+  if (overrides.length === 0) {
+    rowsHtml = `
+      <div class="py-3 text-center text-xs text-outline font-mono">
+        No custom merchant rules defined. Click below to pin specific cards to stores (e.g. Costco -> Visa).
+      </div>
+    `;
+  } else {
+    overrides.forEach(r => {
+      rowsHtml += `
+        <div class="p-2.5 rounded-lg bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-3 text-xs">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-bold text-on-surface">${r.merchant}</span>
+              <span class="text-outline">→</span>
+              <span class="font-mono text-secondary">${r.cardName}</span>
+            </div>
+            ${r.note ? `<p class="text-[11px] text-outline truncate mt-0.5">${r.note}</p>` : ''}
+          </div>
+          <button onclick="openMerchantOverrideModal('${r.id}')" class="text-[11px] font-mono text-outline hover:text-on-surface shrink-0">
+            Edit
+          </button>
+        </div>
+      `;
+    });
+  }
+
+  container.innerHTML = `
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-secondary text-[16px]">rule</span>
+        <span class="font-headline font-semibold text-xs text-on-surface">Custom Merchant Routing Rules</span>
+        <span class="text-[10px] font-mono text-outline">(${overrides.length} Rules)</span>
+      </div>
+      <button onclick="openMerchantOverrideModal()" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-on-surface border border-surface-container-highest flex items-center gap-1">
+        <span class="material-symbols-outlined text-[13px] text-secondary">add</span>
+        <span>+ Add Rule</span>
+      </button>
+    </div>
+    <div class="space-y-2 mt-2">
+      ${rowsHtml}
+    </div>
+  `;
+}
+
+// =========================================================================
 // CATEGORY REWARDS RULES & POLICIES DATABASE
 // =========================================================================
 /**
@@ -2215,7 +2863,29 @@ function renderSpendRouterResult(data) {
     </div>
   ` : '';
 
-  resultBox.innerHTML = priorityHtml + capExceededHtml + `
+  // Custom Merchant Override Check
+  const rawInput = document.getElementById('spendRouterInput')?.value?.trim()?.toLowerCase() || '';
+  const matchedOverride = (state.merchantOverrides || []).find(o => 
+    o.merchant && (
+      rawInput.includes(o.merchant.toLowerCase()) || 
+      (data.merchant && data.merchant.toLowerCase().includes(o.merchant.toLowerCase()))
+    )
+  );
+
+  const overrideHtml = matchedOverride ? `
+    <div class="mb-4 p-3.5 rounded-xl bg-primary-container/15 border border-primary-container/40 flex items-start gap-3">
+      <span class="material-symbols-outlined text-primary-container text-xl mt-0.5">pin_drop</span>
+      <div>
+        <div class="text-[10px] font-mono font-bold text-primary-container uppercase tracking-wider">📌 USER CUSTOM OVERRIDE RULE APPLIED</div>
+        <div class="text-sm font-headline font-bold text-on-surface mt-0.5">Pinned Card: ${matchedOverride.cardName}</div>
+        <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+          Matches your custom rule for <strong>"${matchedOverride.merchant}"</strong>. ${matchedOverride.note || 'User-pinned routing rule takes precedence.'}
+        </p>
+      </div>
+    </div>
+  ` : '';
+
+  resultBox.innerHTML = overrideHtml + priorityHtml + capExceededHtml + `
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
