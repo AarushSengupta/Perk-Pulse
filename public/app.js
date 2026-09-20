@@ -64,7 +64,13 @@ const state = {
   },
 
   // Sign-Up Bonus (SUB) Minimum Spend Velocity Tracker
-  activeSubs: [] // [ { id, cardId, cardName, targetSpend, currentSpend, deadline, reward, isPriority } ]
+  activeSubs: [], // [ { id, cardId, cardName, targetSpend, currentSpend, deadline, reward, isPriority } ]
+
+  // Rotating 5% Calendar & Category Spend Caps
+  quarterlyData: null,
+  quarterlyActivations: {}, // { 'chase-cff': true, 'discover-it': true }
+  spendCaps: {}, // { 'amex-gold-groceries': 0, 'chase-cff-quarterly': 0, ... }
+  selectedQuarter: 'Q3'
 };
 
 // =========================================================================
@@ -75,6 +81,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadClaimedCreditsFromStorage();
   loadCppFromStorage();
   loadSubsFromStorage();
+  loadQuarterlyFromStorage();
+  loadSpendCapsFromStorage();
   setupNavigation();
   setupOfferControls();
   setupWalletControls();
@@ -88,11 +96,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([
     fetchCards(),
     fetchOffers(),
-    fetchPerks()
+    fetchPerks(),
+    fetchQuarterly()
   ]);
 
   renderAllViews();
 });
+
+function loadQuarterlyFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_quarterly_activations');
+    state.quarterlyActivations = saved ? JSON.parse(saved) : { 'chase-cff': true, 'discover-it': true };
+  } catch (e) {
+    state.quarterlyActivations = { 'chase-cff': true, 'discover-it': true };
+  }
+}
+
+function saveQuarterlyToStorage() {
+  try {
+    localStorage.setItem('perkpulse_quarterly_activations', JSON.stringify(state.quarterlyActivations));
+  } catch (e) {
+    console.error('Error saving quarterly activations:', e);
+  }
+}
+
+function loadSpendCapsFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_spend_caps');
+    state.spendCaps = saved ? JSON.parse(saved) : {};
+  } catch (e) {
+    state.spendCaps = {};
+  }
+}
+
+function saveSpendCapsToStorage() {
+  try {
+    localStorage.setItem('perkpulse_spend_caps', JSON.stringify(state.spendCaps));
+  } catch (e) {
+    console.error('Error saving spend caps:', e);
+  }
+}
+
+function loadSubsFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_active_subs');
+    state.activeSubs = saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    state.activeSubs = [];
+  }
+}
+
+function saveSubsToStorage() {
+  try {
+    localStorage.setItem('perkpulse_active_subs', JSON.stringify(state.activeSubs));
+  } catch (e) {
+    console.error('Error saving SUB state:', e);
+  }
+}
 
 function loadWalletFromStorage() {
   try {
@@ -394,6 +454,21 @@ async function fetchPerks() {
     }
   } catch (err) {
     console.error('Failed to fetch perks:', err);
+  }
+}
+
+async function fetchQuarterly() {
+  try {
+    const res = await fetch('/api/quarterly');
+    const json = await res.json();
+    if (json.success && json.data) {
+      state.quarterlyData = json.data;
+      if (json.data.currentQuarter) {
+        state.selectedQuarter = json.data.currentQuarter;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch quarterly calendar:', err);
   }
 }
 
@@ -1585,7 +1660,13 @@ function renderWalletView() {
     });
   }
 
-  // 2. Render In-Page Popular Cards Picker
+  // 2. Render Rotating 5% Category Calendar & Activation
+  renderQuarterlySection();
+
+  // 3. Render Category Spend Cap & Fallback Monitor
+  renderSpendCapsSection();
+
+  // 4. Render In-Page Popular Cards Picker
   renderPopularCardsPicker();
 
   // 3. Render "Best Card For Each Spend Category" 8-grid
@@ -1709,6 +1790,257 @@ window.removeCardFromWallet = function(cardId) {
 };
 
 // =========================================================================
+// ROTATING 5% CATEGORIES & QUARTERLY ACTIVATION CALENDAR
+// =========================================================================
+window.selectQuarter = function(qKey) {
+  state.selectedQuarter = qKey;
+  renderQuarterlySection();
+};
+
+window.toggleQuarterlyActivation = function(cardId) {
+  state.quarterlyActivations[cardId] = !state.quarterlyActivations[cardId];
+  saveQuarterlyToStorage();
+  const isNowActive = state.quarterlyActivations[cardId];
+  showToast(`${cardId === 'chase-cff' ? 'Chase Freedom Flex' : 'Discover it'} 5% ${isNowActive ? 'activated' : 'marked inactive'}`);
+  renderQuarterlySection();
+};
+
+window.quickLogQuarterlySpend = function(capKey, delta) {
+  state.spendCaps[capKey] = Math.max(0, (state.spendCaps[capKey] || 0) + delta);
+  saveSpendCapsToStorage();
+  showToast(`+$${delta} logged to quarterly 5% spend ($${state.spendCaps[capKey]} / $1,500)`);
+  renderQuarterlySection();
+  renderSpendCapsSection();
+};
+
+function renderQuarterlySection() {
+  const container = document.getElementById('quarterlyContainer');
+  if (!container) return;
+
+  const data = state.quarterlyData;
+  if (!data || !data.quarters) {
+    container.innerHTML = '<div class="py-4 text-xs text-outline font-mono">Loading quarterly calendar data...</div>';
+    return;
+  }
+
+  const curQKey = state.selectedQuarter || data.currentQuarter || 'Q3';
+  const qInfo = data.quarters[curQKey];
+
+  const quarterButtonsHtml = ['Q1', 'Q2', 'Q3', 'Q4'].map(qKey => {
+    const isActive = qKey === curQKey;
+    const isLive = qKey === (data.currentQuarter || 'Q3');
+    return `
+      <button onclick="selectQuarter('${qKey}')" class="px-2.5 py-1 rounded text-xs font-mono font-semibold transition-all ${
+        isActive 
+          ? 'bg-primary-container text-on-primary-container shadow-sm' 
+          : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+      }">
+        ${qKey} ${isLive ? '• LIVE' : ''}
+      </button>
+    `;
+  }).join('');
+
+  let cardsHtml = '';
+  (qInfo.cards || []).forEach(qCard => {
+    const inWallet = state.walletCards.includes(qCard.cardId);
+    const isActivated = state.quarterlyActivations[qCard.cardId] !== false;
+    const capKey = `${qCard.cardId}-quarterly`;
+    const spent = state.spendCaps[capKey] || 0;
+    const cap = qCard.cap || 1500;
+    const pct = Math.min(100, Math.round((spent / cap) * 100));
+    const remaining = Math.max(0, cap - spent);
+    const isExhausted = spent >= cap;
+
+    cardsHtml += `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border ${isActivated ? 'border-surface-container-highest/60' : 'border-tertiary-container/40'} space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-headline font-bold text-sm text-on-surface">${qCard.cardName}</span>
+              ${inWallet ? `
+                <span class="px-1.5 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/30 text-[10px] font-mono">In Wallet</span>
+              ` : `
+                <span class="px-1.5 py-0.2 rounded bg-surface-container-high text-outline text-[10px] font-mono">Catalog Card</span>
+              `}
+              <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary-container text-[11px] font-mono font-bold">${qCard.rateText}</span>
+            </div>
+            <p class="text-xs text-secondary font-mono mt-0.5">${qCard.categories.join(' • ')}</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="toggleQuarterlyActivation('${qCard.cardId}')" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all flex items-center gap-1.5 ${
+              isActivated 
+                ? 'bg-secondary/15 text-secondary border border-secondary/40' 
+                : 'bg-tertiary-container/15 text-tertiary-container border border-tertiary-container/40 animate-pulse'
+            }">
+              <span class="material-symbols-outlined text-[15px]">${isActivated ? 'task_alt' : 'priority_high'}</span>
+              <span>${isActivated ? 'Quarter Activated' : 'Activate 5%'}</span>
+            </button>
+            <a href="${qCard.activationUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-surface-container-high text-outline hover:text-on-surface transition-colors" title="Open Bank Activation Portal">
+              <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Spend Cap Progress -->
+        <div class="space-y-1.5 pt-1">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="text-on-surface font-semibold">$${spent.toLocaleString()} <span class="text-outline font-normal">of $${cap.toLocaleString()} quarterly spend cap</span></span>
+            <span class="${isExhausted ? 'text-tertiary-container font-bold' : 'text-secondary font-semibold'}">
+              ${isExhausted ? '⚠️ CAP EXHAUSTED (1% Fallback)' : `$${remaining.toLocaleString()} left (${pct}%)`}
+            </span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+            <div class="h-full ${isExhausted ? 'bg-tertiary-container' : 'bg-secondary'} transition-all duration-300 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        <!-- Qualifying Merchants Chips & Quick Log -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-surface-container-highest/30 text-xs">
+          <div class="text-[11px] text-outline font-mono truncate max-w-sm">
+            Eligible: ${(qCard.merchants || []).slice(0, 5).join(', ')}...
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-[10px] font-mono text-outline">Log Spend:</span>
+            <button onclick="quickLogQuarterlySpend('${capKey}', 50)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-on-surface border border-surface-container-highest">+ $50</button>
+            <button onclick="quickLogQuarterlySpend('${capKey}', 100)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-on-surface border border-surface-container-highest">+ $100</button>
+            <button onclick="quickLogQuarterlySpend('${capKey}', 250)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-secondary font-semibold border border-surface-container-highest">+ $250</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-highest/40">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[20px]">calendar_month</span>
+          <h3 class="font-headline font-semibold text-base text-on-surface">Rotating 5% Categories & Activation Calendar</h3>
+          <span class="px-2 py-0.5 rounded bg-secondary/15 text-secondary text-[10px] font-mono font-semibold">2026 CYCLE</span>
+        </div>
+        <p class="text-xs text-outline mt-0.5">Activate each quarter to unlock 5% cash back. PerkPulse automatically routes spend and monitors your $1,500 quarterly cap.</p>
+      </div>
+      <div class="flex items-center gap-1.5 overflow-x-auto">
+        ${quarterButtonsHtml}
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      ${cardsHtml}
+    </div>
+  `;
+}
+
+// =========================================================================
+// SPEND CAP & FALLBACK ROUTING MONITOR
+// =========================================================================
+window.adjustSpendCap = function(capId, delta) {
+  state.spendCaps[capId] = Math.max(0, (state.spendCaps[capId] || 0) + delta);
+  saveSpendCapsToStorage();
+  showToast(`Logged $${delta} spend towards cap`);
+  renderQuarterlySection();
+  renderSpendCapsSection();
+};
+
+window.resetSpendCap = function(capId) {
+  state.spendCaps[capId] = 0;
+  saveSpendCapsToStorage();
+  showToast('Spend cap reset to $0');
+  renderQuarterlySection();
+  renderSpendCapsSection();
+};
+
+function renderSpendCapsSection() {
+  const container = document.getElementById('spendCapContainer');
+  if (!container) return;
+
+  const data = state.quarterlyData;
+  const caps = (data && data.staticSpendCaps) ? data.staticSpendCaps : [];
+
+  let capsHtml = '';
+  caps.forEach(capItem => {
+    const inWallet = state.walletCards.includes(capItem.cardId);
+    const spent = state.spendCaps[capItem.id] || 0;
+    const cap = capItem.cap;
+    const pct = Math.min(100, Math.round((spent / cap) * 100));
+    const remaining = Math.max(0, cap - spent);
+    const isExhausted = spent >= cap;
+
+    capsHtml += `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border ${isExhausted ? 'border-tertiary-container/50 bg-tertiary-container/5' : 'border-surface-container-highest/40'} space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-headline font-bold text-sm text-on-surface">${capItem.cardName}</span>
+              ${inWallet ? `
+                <span class="px-1.5 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/30 text-[10px] font-mono">In Wallet</span>
+              ` : `
+                <span class="px-1.5 py-0.2 rounded bg-surface-container-high text-outline text-[10px] font-mono">Catalog</span>
+              `}
+              <span class="px-2 py-0.5 rounded bg-surface-container-high text-outline text-[10px] font-mono">${capItem.cadence}</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">${capItem.rule}</p>
+          </div>
+
+          <div>
+            ${isExhausted ? `
+              <span class="px-2.5 py-1 rounded bg-tertiary-container/20 border border-tertiary-container/40 text-tertiary-container text-xs font-mono font-bold flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">warning</span>
+                <span>FALLBACK ACTIVE (1x)</span>
+              </span>
+            ` : `
+              <span class="px-2.5 py-1 rounded bg-secondary/15 text-secondary border border-secondary/30 text-xs font-mono font-semibold">
+                ${capItem.topRate}${capItem.unit.includes('%') ? '%' : 'x'} Multiplier Active
+              </span>
+            `}
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="text-on-surface font-semibold">$${spent.toLocaleString()} <span class="text-outline font-normal">of $${cap.toLocaleString()} cap</span></span>
+            <span class="${isExhausted ? 'text-tertiary-container font-bold' : 'text-secondary font-semibold'}">
+              ${isExhausted ? 'Cap Reached (0 remaining)' : `$${remaining.toLocaleString()} remaining (${pct}%)`}
+            </span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+            <div class="h-full ${isExhausted ? 'bg-tertiary-container' : 'bg-primary-container'} transition-all duration-300 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        <!-- Quick Log Spend towards cap -->
+        <div class="flex items-center justify-between pt-1 border-t border-surface-container-highest/30 text-xs">
+          <span class="text-[11px] font-mono text-outline">Adjust Logged Spend:</span>
+          <div class="flex items-center gap-1.5">
+            <button onclick="adjustSpendCap('${capItem.id}', 100)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-on-surface border border-surface-container-highest">+ $100</button>
+            <button onclick="adjustSpendCap('${capItem.id}', 500)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-on-surface border border-surface-container-highest">+ $500</button>
+            <button onclick="adjustSpendCap('${capItem.id}', 1000)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container text-[11px] font-mono text-secondary font-semibold border border-surface-container-highest">+ $1k</button>
+            <button onclick="resetSpendCap('${capItem.id}')" class="px-2 py-0.5 rounded text-[10px] font-mono text-outline hover:text-error transition-colors" title="Reset to $0">Reset</button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-container-highest/40">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary-container text-[20px]">speed</span>
+          <h3 class="font-headline font-semibold text-base text-on-surface">Category Spend Cap & Fallback Monitor</h3>
+        </div>
+        <p class="text-xs text-outline mt-0.5">Track your progress toward annual & monthly spend ceilings. Live router automatically routes to backup cards when caps are hit.</p>
+      </div>
+      <span class="text-[11px] font-mono text-outline">Deterministic Fallbacks</span>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      ${capsHtml}
+    </div>
+  `;
+}
+
+// =========================================================================
 // CATEGORY REWARDS RULES & POLICIES DATABASE
 // =========================================================================
 /**
@@ -1811,7 +2143,9 @@ function setupSpendRouter() {
     timeout = setTimeout(async () => {
       try {
         const cppEncoded = encodeURIComponent(JSON.stringify(state.cppValuations));
-        const res = await fetch(`/api/wallet/route-spend?merchant=${encodeURIComponent(query)}&walletCards=${state.walletCards.join(',')}&yieldMode=${state.yieldMode}&cppRates=${cppEncoded}`);
+        const quarterlyEncoded = encodeURIComponent(JSON.stringify(state.quarterlyActivations));
+        const spendCapsEncoded = encodeURIComponent(JSON.stringify(state.spendCaps));
+        const res = await fetch(`/api/wallet/route-spend?merchant=${encodeURIComponent(query)}&walletCards=${state.walletCards.join(',')}&yieldMode=${state.yieldMode}&cppRates=${cppEncoded}&quarterlyActive=${quarterlyEncoded}&spendCaps=${spendCapsEncoded}`);
         const json = await res.json();
         if (json.success) {
           renderSpendRouterResult(json);
@@ -1867,7 +2201,21 @@ function renderSpendRouterResult(data) {
     </div>
   ` : '';
 
-  resultBox.innerHTML = priorityHtml + `
+  // Spend Cap Fallback Notification Banner
+  const capExceededHtml = data.capExceeded ? `
+    <div class="mb-4 p-3.5 rounded-xl bg-tertiary-container/15 border border-tertiary-container/40 flex items-start gap-3">
+      <span class="material-symbols-outlined text-tertiary-container text-xl mt-0.5">warning</span>
+      <div>
+        <div class="text-[10px] font-mono font-bold text-tertiary-container uppercase tracking-wider">⚠️ SPEND CEILING EXCEEDED — FALLBACK ROUTED</div>
+        <div class="text-sm font-headline font-bold text-on-surface mt-0.5">${data.capExceeded.cardName} Cap Reached</div>
+        <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+          ${data.capExceeded.reason}. Multiplier downgraded to base 1%. PerkPulse dynamically evaluated your active wallet and routed this swipe to <strong>${card ? card.name : 'Alternative'}</strong> to ensure you capture the highest remaining yield.
+        </p>
+      </div>
+    </div>
+  ` : '';
+
+  resultBox.innerHTML = priorityHtml + capExceededHtml + `
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
@@ -1877,6 +2225,12 @@ function renderSpendRouterResult(data) {
           </span>
           <span class="text-outline">•</span>
           <span class="text-xs text-outline font-mono uppercase">Category: ${data.detectedCategory}</span>
+          ${data.isQuarterlyPromo ? `
+            <span class="px-1.5 py-0.2 rounded bg-secondary/20 text-secondary border border-secondary/40 text-[10px] font-mono font-bold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">calendar_month</span>
+              <span>5% ROTATING</span>
+            </span>
+          ` : ''}
           ${isFromWallet ? `
             <span class="px-1.5 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/40 text-[10px] font-mono">In Your Wallet</span>
           ` : `

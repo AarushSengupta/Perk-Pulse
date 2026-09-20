@@ -1,0 +1,196 @@
+{
+  "year": 2026,
+  "currentQuarter": "Q3",
+  "quarters": {
+    "Q1": {
+      "name": "Q1 2026",
+      "period": "January 1 – March 31, 2026",
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "cards": [
+        {
+          "cardId": "chase-cff",
+          "cardName": "Chase Freedom Flex®",
+          "issuer": "Chase",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Grocery Stores", "Fitness Clubs & Gyms", "Spa Services"],
+          "merchants": ["kroger", "safeway", "aldi", "trader joe's", "heb", "planet fitness", "equinox", "la fitness"],
+          "activationDeadline": "March 14, 2026",
+          "activationUrl": "https://www.chase.com/mybonus"
+        },
+        {
+          "cardId": "discover-it",
+          "cardName": "Discover it® Cash Back",
+          "issuer": "Discover",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Restaurants", "Home Improvement Stores"],
+          "merchants": ["mcdonald's", "starbucks", "chipotle", "olive garden", "home depot", "lowes", "menards", "ace hardware"],
+          "activationDeadline": "March 31, 2026",
+          "activationUrl": "https://www.discover.com"
+        }
+      ]
+    },
+    "Q2": {
+      "name": "Q2 2026",
+      "period": "April 1 – June 30, 2026",
+      "start": "2026-04-01",
+      "end": "2026-06-30",
+      "cards": [
+        {
+          "cardId": "chase-cff",
+          "cardName": "Chase Freedom Flex®",
+          "issuer": "Chase",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Amazon.com", "Whole Foods Market", "Hotels Directly"],
+          "merchants": ["amazon", "whole foods", "marriott", "hilton", "hyatt", "ihg"],
+          "activationDeadline": "June 14, 2026",
+          "activationUrl": "https://www.chase.com/mybonus"
+        },
+        {
+          "cardId": "discover-it",
+          "cardName": "Discover it® Cash Back",
+          "issuer": "Discover",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Gas Stations & EV Charging", "Target"],
+          "merchants": ["shell", "exxon", "chevron", "bp", "tesla supercharger", "electrify america", "target"],
+          "activationDeadline": "June 30, 2026",
+          "activationUrl": "https://www.discover.com"
+        }
+      ]
+    },
+    "Q3": {
+      "name": "Q3 2026",
+      "period": "July 1 – September 30, 2026",
+      "start": "2026-07-01",
+      "end": "2026-09-30",
+      "cards": [
+        {
+          "cardId": "chase-cff",
+          "cardName": "Chase Freedom Flex®",
+          "issuer": "Chase",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Gas Stations & EV Charging", "Select Live Entertainment", "Movie Theaters"],
+          "merchants": ["shell", "chevron", "exxon", "mobil", "bp", "wawa", "sheetz", "circle k", "chargepoint", "evgo", "amc", "regal", "cinemark", "ticketmaster", "stubhub", "seatgeek"],
+          "activationDeadline": "September 14, 2026",
+          "activationUrl": "https://www.chase.com/mybonus"
+        },
+        {
+          "cardId": "discover-it",
+          "cardName": "Discover it® Cash Back",
+          "issuer": "Discover",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Grocery Stores", "Wholesale Clubs"],
+          "merchants": ["kroger", "publix", "safeway", "albertsons", "aldi", "trader joe's", "sam's club", "bj's wholesale"],
+          "activationDeadline": "September 30, 2026",
+          "activationUrl": "https://www.discover.com"
+        }
+      ]
+    },
+    "Q4": {
+      "name": "Q4 2026",
+      "period": "October 1 – December 31, 2026",
+      "start": "2026-10-01",
+      "end": "2026-12-31",
+      "cards": [
+        {
+          "cardId": "chase-cff",
+          "cardName": "Chase Freedom Flex®",
+          "issuer": "Chase",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["PayPal", "Department Stores", "Select Charities"],
+          "merchants": ["paypal", "macy's", "nordstrom", "kohl's", "bloomingdale's", "dillard's", "red cross", "united way"],
+          "activationDeadline": "December 14, 2026",
+          "activationUrl": "https://www.chase.com/mybonus"
+        },
+        {
+          "cardId": "discover-it",
+          "cardName": "Discover it® Cash Back",
+          "issuer": "Discover",
+          "rate": 5,
+          "rateText": "5% Cash Back",
+          "cap": 1500,
+          "maxReward": 75,
+          "categories": ["Amazon.com", "Digital Wallets (Apple Pay, Google Pay)"],
+          "merchants": ["amazon", "apple pay", "google pay", "samsung pay"],
+          "activationDeadline": "December 31, 2026",
+          "activationUrl": "https://www.discover.com"
+        }
+      ]
+    }
+  },
+  "staticSpendCaps": [
+    {
+      "id": "amex-gold-groceries",
+      "cardId": "amex-gold",
+      "cardName": "American Express® Gold Card",
+      "category": "groceries",
+      "categoryLabel": "U.S. Supermarkets",
+      "cap": 25000,
+      "cadence": "Calendar Year",
+      "topRate": 4.0,
+      "fallbackRate": 1.0,
+      "unit": "x Points",
+      "rule": "4x on up to $25,000 per calendar year, then 1x"
+    },
+    {
+      "id": "citi-custom-cash-top",
+      "cardId": "citi-custom-cash",
+      "cardName": "Citi Custom Cash® Card",
+      "category": "groceries",
+      "categoryLabel": "Highest Category (e.g. Groceries)",
+      "cap": 500,
+      "cadence": "Billing Cycle",
+      "topRate": 5.0,
+      "fallbackRate": 1.0,
+      "unit": "% Cash Back",
+      "rule": "5% on up to $500 spent in top category each billing cycle, then 1%"
+    },
+    {
+      "id": "chase-cff-quarterly",
+      "cardId": "chase-cff",
+      "cardName": "Chase Freedom Flex®",
+      "category": "quarterly_rotating",
+      "categoryLabel": "Quarterly 5% Rotating",
+      "cap": 1500,
+      "cadence": "Quarter",
+      "topRate": 5.0,
+      "fallbackRate": 1.0,
+      "unit": "% Cash Back",
+      "rule": "5% on up to $1,500 each quarter with activation, then 1%"
+    },
+    {
+      "id": "discover-it-quarterly",
+      "cardId": "discover-it",
+      "cardName": "Discover it® Cash Back",
+      "category": "quarterly_rotating",
+      "categoryLabel": "Quarterly 5% Rotating",
+      "cap": 1500,
+      "cadence": "Quarter",
+      "topRate": 5.0,
+      "fallbackRate": 1.0,
+      "unit": "% Cash Back",
+      "rule": "5% on up to $1,500 each quarter with activation, then 1%"
+    }
+  ]
+}

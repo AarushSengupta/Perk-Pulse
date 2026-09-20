@@ -30,6 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const CARDS_FILE = path.join(__dirname, 'data', 'cards.json');
 const OFFERS_FILE = path.join(__dirname, 'data', 'offers.json');
 const PERKS_FILE = path.join(__dirname, 'data', 'perks.json');
+const QUARTERLY_FILE = path.join(__dirname, 'data', 'quarterly.json');
 
 /**
  * Safely reads and parses a JSON file from disk.
@@ -240,6 +241,22 @@ app.get('/api/perks', (req, res) => {
   });
 });
 
+/**
+ * GET /api/quarterly
+ * Retrieves 2026 rotating 5% cash back calendar (Chase Freedom Flex, Discover it)
+ * and active spending caps.
+ * 
+ * @route GET /api/quarterly
+ * @returns {Object} 2026 rotating 5% quarterly categories, merchant lists, and caps
+ */
+app.get('/api/quarterly', (req, res) => {
+  const quarterly = readJSON(QUARTERLY_FILE);
+  res.json({
+    success: true,
+    data: quarterly
+  });
+});
+
 // =========================================================================
 // POINT PROGRAM & CENTS-PER-POINT (CPP) VALUATION ARBITRAGE ENGINE
 // =========================================================================
@@ -428,11 +445,29 @@ app.get('/api/wallet/best-cards', (req, res) => {
 app.get('/api/wallet/route-spend', (req, res) => {
   const cards = readJSON(CARDS_FILE);
   const offers = readJSON(OFFERS_FILE);
-  const { merchant = '', walletCards, yieldMode = 'multiplier', cppRates } = req.query;
+  const quarterly = readJSON(QUARTERLY_FILE);
+  const { 
+    merchant = '', 
+    walletCards, 
+    yieldMode = 'multiplier', 
+    cppRates,
+    quarterlyActive,
+    spendCaps 
+  } = req.query;
 
   let customCpp = {};
   if (cppRates) {
     try { customCpp = JSON.parse(cppRates); } catch (e) { customCpp = {}; }
+  }
+
+  let quarterlyActiveMap = {};
+  if (quarterlyActive) {
+    try { quarterlyActiveMap = JSON.parse(quarterlyActive); } catch (e) { quarterlyActiveMap = {}; }
+  }
+
+  let spendCapsMap = {};
+  if (spendCaps) {
+    try { spendCapsMap = JSON.parse(spendCaps); } catch (e) { spendCapsMap = {}; }
   }
 
   let activeCardIds = [];
@@ -492,6 +527,86 @@ app.get('/api/wallet/route-spend', (req, res) => {
     mappedCategory = 'transit';
   }
 
+  // Helper to evaluate effective card rate taking into account rotating 5% and spend caps
+  function evaluateCardRate(c) {
+    let rate = (c.multipliers && c.multipliers[mappedCategory]?.rate) || (c.multipliers?.everyday?.rate) || 1.0;
+    let unit = (c.multipliers && c.multipliers[mappedCategory]?.unit) || (c.multipliers?.everyday?.unit) || 'x PTS';
+    let rule = (c.multipliers && c.multipliers[mappedCategory]?.rule) || (c.multipliers?.everyday?.rule) || '1x Base';
+    let capExceeded = null;
+    let isQuarterlyPromo = false;
+
+    const currentQ = (quarterly && quarterly.currentQuarter) ? quarterly.quarters[quarterly.currentQuarter] : null;
+
+    // 1. Rotating 5% Category Check (Chase Freedom Flex & Discover it)
+    if (currentQ && (c.id === 'chase-cff' || c.id === 'discover-it')) {
+      const qCard = currentQ.cards?.find(qc => qc.cardId === c.id);
+      if (qCard) {
+        const isActivated = quarterlyActiveMap[c.id] !== false;
+        const matchesMerchant = qCard.merchants?.some(m => query.includes(m));
+        const matchesCategory = (c.id === 'chase-cff' && (mappedCategory === 'gas' || /movie|theater|amc|regal|cinemark|ticketmaster|stubhub|concert|entertainment/i.test(query))) ||
+                               (c.id === 'discover-it' && (mappedCategory === 'groceries' || /costco|sam's club|sams club|wholesale/i.test(query)));
+
+        if ((matchesMerchant || matchesCategory) && isActivated) {
+          const capKey = `${c.id}-quarterly`;
+          const spent = spendCapsMap[capKey] || 0;
+          if (spent >= qCard.cap) {
+            capExceeded = {
+              cardId: c.id,
+              cardName: c.name,
+              cap: qCard.cap,
+              spent,
+              reason: `Quarterly $${qCard.cap.toLocaleString()} 5% cap reached ($${spent.toLocaleString()} spent)`
+            };
+            rate = 1.0;
+            unit = '% Cash Back';
+            rule = `1% Base (Quarterly $${qCard.cap} cap reached)`;
+          } else {
+            rate = 5.0;
+            unit = '% Cash Back';
+            rule = `5% Cash Back (${currentQ.name} Rotating 5%: ${qCard.categories.join(', ')})`;
+            isQuarterlyPromo = true;
+          }
+        }
+      }
+    }
+
+    // 2. Amex Gold $25,000 Supermarket Cap Check
+    if (c.id === 'amex-gold' && mappedCategory === 'groceries') {
+      const spent = spendCapsMap['amex-gold-groceries'] || 0;
+      if (spent >= 25000) {
+        capExceeded = {
+          cardId: c.id,
+          cardName: c.name,
+          cap: 25000,
+          spent,
+          reason: `Annual $25,000 U.S. Supermarket 4x cap reached ($${spent.toLocaleString()} spent)`
+        };
+        rate = 1.0;
+        unit = 'x MR Points';
+        rule = '1x Base (Annual $25,000 grocery cap reached)';
+      }
+    }
+
+    // 3. Citi Custom Cash $500 Billing Cycle Cap Check
+    if (c.id === 'citi-custom-cash') {
+      const spent = spendCapsMap['citi-custom-cash-top'] || 0;
+      if (spent >= 500) {
+        capExceeded = {
+          cardId: c.id,
+          cardName: c.name,
+          cap: 500,
+          spent,
+          reason: `Billing cycle $500 5% cap reached ($${spent.toLocaleString()} spent)`
+        };
+        rate = 1.0;
+        unit = '% Cash Back';
+        rule = '1% Base ($500 billing cycle cap reached)';
+      }
+    }
+
+    return { rate, unit, rule, capExceeded, isQuarterlyPromo };
+  }
+
   // Cross-reference active targeted merchant discounts in the database
   const userMatchingOffers = offers.filter(o => 
     o.merchant.toLowerCase().includes(query) && activeCardIds.includes(o.cardId)
@@ -506,45 +621,26 @@ app.get('/api/wallet/route-spend', (req, res) => {
   let topUserYield = 0;
   let topUserRule = '';
   let topUserUnit = '';
+  let topUserCapExceeded = null;
+  let topUserIsQuarterly = false;
 
   userCards.forEach(c => {
-    const mult = c.multipliers && c.multipliers[mappedCategory];
-    if (mult) {
-      const yieldVal = computeEffectiveYield(mult.rate, mult.unit, c, customCpp);
-      const isWinner = yieldMode === 'effective_yield' 
-        ? (yieldVal > topUserYield)
-        : (mult.rate > topUserRate);
+    const evaluated = evaluateCardRate(c);
+    const yieldVal = computeEffectiveYield(evaluated.rate, evaluated.unit, c, customCpp);
+    const isWinner = yieldMode === 'effective_yield' 
+      ? (yieldVal > topUserYield)
+      : (evaluated.rate > topUserRate);
 
-      if (isWinner) {
-        topUserRate = mult.rate;
-        topUserYield = yieldVal;
-        topUserCard = c;
-        topUserRule = mult.rule;
-        topUserUnit = mult.unit;
-      }
+    if (isWinner) {
+      topUserRate = evaluated.rate;
+      topUserYield = yieldVal;
+      topUserCard = c;
+      topUserRule = evaluated.rule;
+      topUserUnit = evaluated.unit;
+      topUserCapExceeded = evaluated.capExceeded;
+      topUserIsQuarterly = evaluated.isQuarterlyPromo;
     }
   });
-
-  // Fallback to highest everyday catch-all in wallet if no specific category bonus exists
-  if (!topUserCard && userCards.length > 0) {
-    userCards.forEach(c => {
-      const base = c.multipliers && c.multipliers.everyday;
-      if (base) {
-        const yieldVal = computeEffectiveYield(base.rate, base.unit, c, customCpp);
-        const isWinner = yieldMode === 'effective_yield' 
-          ? (yieldVal > topUserYield)
-          : (base.rate > topUserRate);
-
-        if (isWinner) {
-          topUserRate = base.rate;
-          topUserYield = yieldVal;
-          topUserCard = c;
-          topUserRule = base.rule;
-          topUserUnit = base.unit;
-        }
-      }
-    });
-  }
 
   // Evaluate benchmark top card across the entire global catalog
   let topCatalogCard = null;
@@ -552,22 +648,22 @@ app.get('/api/wallet/route-spend', (req, res) => {
   let topCatalogYield = 0;
   let topCatalogRule = '';
   let topCatalogUnit = '';
+  let topCatalogIsQuarterly = false;
 
   cards.forEach(c => {
-    const mult = c.multipliers && c.multipliers[mappedCategory];
-    if (mult) {
-      const yieldVal = computeEffectiveYield(mult.rate, mult.unit, c, customCpp);
-      const isWinner = yieldMode === 'effective_yield' 
-        ? (yieldVal > topCatalogYield)
-        : (mult.rate > topCatalogRate);
+    const evaluated = evaluateCardRate(c);
+    const yieldVal = computeEffectiveYield(evaluated.rate, evaluated.unit, c, customCpp);
+    const isWinner = yieldMode === 'effective_yield' 
+      ? (yieldVal > topCatalogYield)
+      : (evaluated.rate > topCatalogRate);
 
-      if (isWinner) {
-        topCatalogRate = mult.rate;
-        topCatalogYield = yieldVal;
-        topCatalogCard = c;
-        topCatalogRule = mult.rule;
-        topCatalogUnit = mult.unit;
-      }
+    if (isWinner) {
+      topCatalogRate = evaluated.rate;
+      topCatalogYield = yieldVal;
+      topCatalogCard = c;
+      topCatalogRule = evaluated.rule;
+      topCatalogUnit = evaluated.unit;
+      topCatalogIsQuarterly = evaluated.isQuarterlyPromo;
     }
   });
 
@@ -593,6 +689,8 @@ app.get('/api/wallet/route-spend', (req, res) => {
     topRule: chosenRule,
     rewardProgram: program,
     isFromWallet: Boolean(topUserCard),
+    isQuarterlyPromo: topUserCard ? topUserIsQuarterly : topCatalogIsQuarterly,
+    capExceeded: topUserCapExceeded,
     bestCatalogAlternative: topCatalogCard && (!topUserCard || (yieldMode === 'effective_yield' ? topCatalogYield > topUserYield : topCatalogRate > topUserRate)) ? {
       card: topCatalogCard,
       rate: topCatalogRate,
