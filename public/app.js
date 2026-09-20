@@ -49,6 +49,9 @@ const state = {
   claimedCredits: {}, // key: "cardId___creditName" -> { claimed, period, value, cadence, timestamp }
   creditCadenceFilter: 'all', // 'all' | 'monthly' | 'annual'
 
+  // Custom User-Created Credit Cards
+  customCards: [],
+
   // Cents-Per-Point (CPP) Valuation Engine & Yield Mode
   yieldMode: 'multiplier', // 'multiplier' | 'effective_yield'
   cppValuations: {
@@ -106,6 +109,21 @@ function loadWalletFromStorage() {
     }
   } catch (e) {
     state.walletCards = [];
+  }
+
+  try {
+    const savedCustom = localStorage.getItem('perkpulse_custom_cards');
+    state.customCards = savedCustom ? JSON.parse(savedCustom) : [];
+  } catch (e) {
+    state.customCards = [];
+  }
+}
+
+function saveCustomCardsToStorage() {
+  try {
+    localStorage.setItem('perkpulse_custom_cards', JSON.stringify(state.customCards));
+  } catch (e) {
+    console.error('Error saving custom cards state:', e);
   }
 }
 
@@ -324,10 +342,11 @@ async function fetchCards() {
     const res = await fetch('/api/cards');
     const json = await res.json();
     if (json.success) {
-      state.allCards = json.data;
+      state.allCards = [...json.data, ...state.customCards];
     }
   } catch (err) {
     console.error('Failed to fetch cards:', err);
+    state.allCards = [...state.customCards];
   }
 }
 
@@ -1038,7 +1057,124 @@ function setupWalletControls() {
       renderPopularCardsPicker();
     });
   });
+
+  setupCustomCardControls();
 }
+
+function setupCustomCardControls() {
+  const modalOverlay = document.getElementById('customCardModalOverlay');
+  const openBtn = document.getElementById('openCustomCardModalBtn');
+  const closeBtn = document.getElementById('closeCustomCardModalBtn');
+  const cancelBtn = document.getElementById('cancelCustomCardBtn');
+  const saveBtn = document.getElementById('saveCustomCardBtn');
+
+  function openCustomCardModal() {
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeCustomCardModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openCustomCardModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeCustomCardModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeCustomCardModal);
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const name = document.getElementById('customCardNameInput')?.value?.trim();
+      const issuer = document.getElementById('customCardIssuerInput')?.value?.trim();
+      const network = document.getElementById('customCardNetworkSelect')?.value || 'Visa';
+      const fee = parseFloat(document.getElementById('customCardFeeInput')?.value) || 0;
+      const credits = parseFloat(document.getElementById('customCardCreditsInput')?.value) || 0;
+      const program = document.getElementById('customCardProgramSelect')?.value || 'cashback';
+      const tier = document.getElementById('customCardTierInput')?.value?.trim() || 'Custom Rewards';
+
+      if (!name || !issuer) {
+        showToast('Please enter both Card Name and Bank/Issuer');
+        return;
+      }
+
+      const dining = parseFloat(document.getElementById('customRateDining')?.value) || 1.0;
+      const groceries = parseFloat(document.getElementById('customRateGroceries')?.value) || 1.0;
+      const gas = parseFloat(document.getElementById('customRateGas')?.value) || 1.0;
+      const everyday = parseFloat(document.getElementById('customRateEveryday')?.value) || 1.0;
+      const flights = parseFloat(document.getElementById('customRateFlights')?.value) || 1.0;
+      const hotels = parseFloat(document.getElementById('customRateHotels')?.value) || 1.0;
+      const transit = parseFloat(document.getElementById('customRateTransit')?.value) || 1.0;
+      const streaming = parseFloat(document.getElementById('customRateStreaming')?.value) || 1.0;
+
+      const isCash = program === 'cashback';
+      const unit = isCash ? '% Cash Back' : 'x Points';
+
+      const customId = `custom-${Date.now()}`;
+      const newCard = {
+        id: customId,
+        name,
+        issuer,
+        network,
+        networkColor: network === 'Amex' ? '#006FCF' : (network === 'Mastercard' ? '#EB001B' : '#0A2F6E'),
+        annualFee: fee,
+        totalCreditsValue: credits,
+        nickname: `${name.toUpperCase()} // CUSTOM`,
+        defaultInWallet: false,
+        last4: '0000',
+        cardTier: tier,
+        rewardProgram: program,
+        isCustom: true,
+        multipliers: {
+          dining: { rate: dining, unit, rule: `${dining}${unit.includes('%') ? '%' : 'x'} on dining & restaurants` },
+          groceries: { rate: groceries, unit, rule: `${groceries}${unit.includes('%') ? '%' : 'x'} on supermarkets & groceries` },
+          gas: { rate: gas, unit, rule: `${gas}${unit.includes('%') ? '%' : 'x'} on gas & EV` },
+          everyday: { rate: everyday, unit, rule: `${everyday}${unit.includes('%') ? '%' : 'x'} catch-all everyday base rate` },
+          flights: { rate: flights, unit, rule: `${flights}${unit.includes('%') ? '%' : 'x'} on flights` },
+          hotels: { rate: hotels, unit, rule: `${hotels}${unit.includes('%') ? '%' : 'x'} on hotels` },
+          transit: { rate: transit, unit, rule: `${transit}${unit.includes('%') ? '%' : 'x'} on transit` },
+          streaming: { rate: streaming, unit, rule: `${streaming}${unit.includes('%') ? '%' : 'x'} on streaming` }
+        },
+        keyCredits: credits > 0 ? [
+          { name: `${name} Annual Credit`, value: credits, cadence: 'Annual', desc: 'User-configured custom annual statement credit' }
+        ] : [],
+        protections: ['Custom configured protection matrix']
+      };
+
+      state.customCards.push(newCard);
+      state.allCards.push(newCard);
+      if (!state.walletCards.includes(customId)) {
+        state.walletCards.push(customId);
+      }
+
+      saveCustomCardsToStorage();
+      saveWalletToStorage();
+
+      // Reset input fields
+      const nameInput = document.getElementById('customCardNameInput');
+      const issuerInput = document.getElementById('customCardIssuerInput');
+      const feeInput = document.getElementById('customCardFeeInput');
+      const creditsInput = document.getElementById('customCardCreditsInput');
+      const tierInput = document.getElementById('customCardTierInput');
+      if (nameInput) nameInput.value = '';
+      if (issuerInput) issuerInput.value = '';
+      if (feeInput) feeInput.value = '0';
+      if (creditsInput) creditsInput.value = '0';
+      if (tierInput) tierInput.value = '';
+
+      closeCustomCardModal();
+      showToast(`Custom card "${name}" created and added to wallet!`);
+      renderAllViews();
+    });
+  }
+}
+
+window.deleteCustomCard = function(cardId) {
+  state.customCards = state.customCards.filter(c => c.id !== cardId);
+  state.allCards = state.allCards.filter(c => c.id !== cardId);
+  state.walletCards = state.walletCards.filter(id => id !== cardId);
+  saveCustomCardsToStorage();
+  saveWalletToStorage();
+  showToast('Custom card deleted');
+  renderAllViews();
+};
 
 function renderCardSelectionList() {
   const container = document.getElementById('cardSelectionList');
@@ -1107,8 +1243,11 @@ function renderWalletView() {
       cardEl.innerHTML = `
         <div>
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-mono uppercase tracking-widest text-outline">${card.issuer}</span>
-            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-outline truncate">${card.issuer}</span>
+              ${card.isCustom ? `<span class="px-1.5 py-0.2 rounded bg-tertiary-container/20 text-tertiary-container text-[9px] font-mono border border-tertiary-container/40">CUSTOM</span>` : ''}
+            </div>
+            <span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
           </div>
           <h3 class="font-headline font-bold text-sm text-on-surface mt-1 truncate group-hover:text-primary-container transition-colors">${card.name}</h3>
           <div class="text-[11px] text-outline font-mono mt-0.5">
@@ -1120,7 +1259,11 @@ function renderWalletView() {
             <span>Perks</span>
             <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
           </span>
-          <button class="text-[10px] text-error hover:underline font-mono" onclick="event.stopPropagation(); removeCardFromWallet('${card.id}')">Remove</button>
+          ${card.isCustom ? `
+            <button class="text-[10px] text-error hover:underline font-mono" onclick="event.stopPropagation(); deleteCustomCard('${card.id}')">Delete Card</button>
+          ` : `
+            <button class="text-[10px] text-error hover:underline font-mono" onclick="event.stopPropagation(); removeCardFromWallet('${card.id}')">Remove</button>
+          `}
         </div>
       `;
       cardsContainer.appendChild(cardEl);

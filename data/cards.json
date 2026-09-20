@@ -939,5 +939,445 @@
       "Cell Phone Protection ($800)"
     ],
     "rewardProgram": "bilt-points"
+  },
+  {
+    "id": "usbank-altitude-reserve",
+    "name": "U.S. Bank Altitude® Reserve Visa Infinite®",
+    "issuer": "U.S. Bank",
+    "network": "Visa",
+    "networkColor": "#002D62",
+    "annualFee": 400,
+    "totalCreditsValue": 325,
+    "nickname": "ALTITUDE RESERVE // 7731",
+    "defaultInWallet": false,
+    "last4": "7731",
+    "cardTier": "Ultra-Premium Mobile Wallet",
+    "rewardProgram": "cashback",
+    "multipliers": {
+      "everyday": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x points on mobile wallet purchases (Apple Pay, Google Pay) and travel = 4.5% return for travel"
+      },
+      "groceries": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x via mobile wallet Apple Pay / Google Pay"
+      },
+      "gas": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x via mobile wallet at pump or station"
+      },
+      "flights": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x on direct airline and travel purchases"
+      },
+      "hotels": {
+        "rate": 5,
+        "unit": "x pts (7.5% travel)",
+        "rule": "5x on prepaid hotels & rental cars booked in Altitude Rewards Center"
+      },
+      "dining": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x on takeout / dining via mobile wallet Apple Pay"
+      },
+      "transit": {
+        "rate": 3,
+        "unit": "x pts (4.5% travel)",
+        "rule": "3x on ground transportation and mobile wallet"
+      },
+      "streaming": {
+        "rate": 1,
+        "unit": "x pts",
+        "rule": "1x standard rate (or 3x if billed through Apple/Google Pay)"
+      }
+    },
+    "keyCredits": [
+      {
+        "name": "Dining & Travel Credit",
+        "value": 325,
+        "cadence": "Annual",
+        "desc": "Automatic  annual statement credit for eligible travel and restaurant purchases"
+      },
+      {
+        "name": "Priority Pass Select",
+        "value": 100,
+        "cadence": "Annual",
+        "desc": "8 complimentary airport lounge visits or dining credits per membership year"
+      }
+    ],
+    "protections": [
+      "Primary Car Rental Insurance",
+      "Trip Cancellation/Interruption (,000)",
+      "Visa Infinite Concierge & Luxury Hotel Collection",
+      "Return Protection ()"
+    ]
+  },
+  {
+    "id": "apple-card",
+    "name": "Apple Card",
+    "issuer": "Goldman Sachs / Apple",
+    "network": "Mastercard",
+    "networkColor": "#FFFFFF",
+    "annualFee": 0,
+    "totalCreditsValue": 0,
+    "nickname": "APPLE CARD // 0000",
+    "defaultInWallet": false,
+    "last4": "0000",
+    "cardTier": "No-Fee Tech & Mobile",
+    "rewardProgram": "cashback",
+    "multipliers": {
+      "everyday": {
+        "rate": 2,
+        "unit": "% Cash Back",
+        "rule": "2% unlimited Daily Cash on all Apple Pay mobile transactions"
+      },
+      "streaming": {
+        "rate": 3,
+        "unit": "% Cash Back",
+        "rule": "3% Daily Cash on Apple services, App Store, and subscriptions"
+      },
+      "dining": {
+        "rate": 2,
+        "unit": "% Cash Back",
+        "rule": "2% via Apple Pay (3% at Panera Bread)"
+      },
+      "groceries": {
+        "rate": 2,
+        "unit": "% Cash Back",
+        "rule": "2% via Apple Pay"
+      },
+      "gas": {
+        "rate": 3,
+        "unit": "% Cash Back",
+        "rule": "3% Daily Cash at Exxon and Mobil stations via Apple Pay"
+      },
+      "flights": {
+        "rate": 2,
+        "unit": "% Cash Back",
+        "rule": "2% via Apple Pay"
+      },
+      "hotels": {
+        "rate": 2,
+        "unit": "% Cash Back",
+        "rule": "2% via Apple Pay"
+      },
+      "transit": {
+        "rate": 3,
+        "unit": "% Cash Back",
+        "rule": "3% Daily Cash on Uber and Uber Eats, 2% other transit via Apple Pay"
+      }
+    },
+    "keyCredits": [],
+    "protections": [
+      "Zero Fraud Liability",
+      "Mastercard ID Theft Protection",
+      "Laser-etched titanium card with no account numbers"
+    ]
+  },
+  {
+    "id": "chase-hyatt",
+    "name": "The World of Hyatt Credit Card",
+    "issuer": "Chase",
+    "network": "Visa",
+    "networkColor": "#0A2F6E",
+    "annualFee": 95,
+    "totalCreditsValue": 200,
+    "nickname": "HYATT // 3381",
+    "defaultInWallet": false,
+    "last4": "3381",
+    "cardTier": "Co-Branded Hotel",
+    "rewardProgram": "chase-ur",
+    "multipliers": {
+      "hotels": {
+        "rate": 9,
+        "unit": "x Hyatt Points",
+        "rule": "4x bonus points at Hyatt hotels + 5x base points as a World of Hyatt member"
+      },
+      "dining": {
+        "rate": 2,
+        "unit": "x Hyatt Points",
+        "rule": "2x on restaurants, cafes, and delivery"
+      },
+      "flights": {
+        "rate": 2,
+        "unit": "x Hyatt Points",
+        "rule": "2x on airline tickets purchased directly with airlines"
+      },
+      "transit": {
+        "rate": 2,
+        "unit": "x Hyatt Points",
+        "rule": "2x on local transit, commuting, and rideshare"
+      },
+      "groceries": {
+        "rate": 1,
+        "unit": "x Hyatt Points",
+        "rule": "1x standard rate"
+      },
+      "gas": {
+        "rate": 1,
+        "unit": "x Hyatt Points",
+        "rule": "1x standard rate"
+      },
+      "streaming": {
+        "rate": 1,
+        "unit": "x Hyatt Points",
+        "rule": "1x standard rate"
+      },
+      "everyday": {
+        "rate": 1,
+        "unit": "x Hyatt Points",
+        "rule": "1x on all other purchases"
+      }
+    },
+    "keyCredits": [
+      {
+        "name": "Annual Free Night Award",
+        "value": 200,
+        "cadence": "Annual",
+        "desc": "1 Free Night Award at Category 1-4 Hyatt property every year after card anniversary"
+      },
+      {
+        "name": "Elite Status Nights",
+        "value": 50,
+        "cadence": "Annual",
+        "desc": "Automatic Discoverist status + 5 qualifying night credits toward tier status each year"
+      }
+    ],
+    "protections": [
+      "Baggage Delay Insurance",
+      "Lost Luggage Reimbursement",
+      "Auto Rental CDW (Secondary)",
+      "Trip Interruption Coverage"
+    ]
+  },
+  {
+    "id": "chase-marriott-boundless",
+    "name": "Marriott Bonvoy Boundless® Credit Card",
+    "issuer": "Chase",
+    "network": "Visa",
+    "networkColor": "#0A2F6E",
+    "annualFee": 95,
+    "totalCreditsValue": 250,
+    "nickname": "MARRIOTT // 5849",
+    "defaultInWallet": false,
+    "last4": "5849",
+    "cardTier": "Co-Branded Hotel",
+    "rewardProgram": "chase-ur",
+    "multipliers": {
+      "hotels": {
+        "rate": 17,
+        "unit": "x Bonvoy Points",
+        "rule": "Up to 17x total points: 6x from card + 10x base member + 1x Silver Elite"
+      },
+      "dining": {
+        "rate": 3,
+        "unit": "x Bonvoy Points",
+        "rule": "3x points on the first ,000 in combined annual spend on grocery stores, restaurants, and gas"
+      },
+      "groceries": {
+        "rate": 3,
+        "unit": "x Bonvoy Points",
+        "rule": "3x points on the first ,000 in combined annual spend on grocery stores, restaurants, and gas"
+      },
+      "gas": {
+        "rate": 3,
+        "unit": "x Bonvoy Points",
+        "rule": "3x points on the first ,000 in combined annual spend on grocery stores, restaurants, and gas"
+      },
+      "flights": {
+        "rate": 2,
+        "unit": "x Bonvoy Points",
+        "rule": "2x standard points"
+      },
+      "transit": {
+        "rate": 2,
+        "unit": "x Bonvoy Points",
+        "rule": "2x standard points"
+      },
+      "streaming": {
+        "rate": 2,
+        "unit": "x Bonvoy Points",
+        "rule": "2x standard points"
+      },
+      "everyday": {
+        "rate": 2,
+        "unit": "x Bonvoy Points",
+        "rule": "2x points on all other purchases"
+      }
+    },
+    "keyCredits": [
+      {
+        "name": "Annual Free Night Award",
+        "value": 250,
+        "cadence": "Annual",
+        "desc": "1 Free Night Award (redemption level up to 35,000 points) every anniversary"
+      },
+      {
+        "name": "15 Elite Night Credits",
+        "value": 75,
+        "cadence": "Annual",
+        "desc": "Automatic Silver Elite status each calendar year"
+      }
+    ],
+    "protections": [
+      "Baggage Delay Insurance",
+      "Lost Luggage Coverage",
+      "Purchase Protection (/claim)",
+      "Trip Delay Reimbursement"
+    ]
+  },
+  {
+    "id": "capone-venture",
+    "name": "Capital One Venture Rewards Credit Card",
+    "issuer": "Capital One",
+    "network": "Visa",
+    "networkColor": "#D03027",
+    "annualFee": 95,
+    "totalCreditsValue": 120,
+    "nickname": "VENTURE // 8820",
+    "defaultInWallet": false,
+    "last4": "8820",
+    "cardTier": "Mid-Tier Travel",
+    "rewardProgram": "capone-miles",
+    "multipliers": {
+      "everyday": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles on every purchase, every day, uncapped"
+      },
+      "hotels": {
+        "rate": 5,
+        "unit": "x Miles",
+        "rule": "5x miles on hotels and rental cars booked through Capital One Travel"
+      },
+      "flights": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      },
+      "dining": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      },
+      "groceries": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      },
+      "gas": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      },
+      "transit": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      },
+      "streaming": {
+        "rate": 2,
+        "unit": "x Miles",
+        "rule": "2x miles uncapped"
+      }
+    },
+    "keyCredits": [
+      {
+        "name": "Global Entry / TSA PreCheck®",
+        "value": 120,
+        "cadence": "Every 4 years",
+        "desc": "Up to  statement credit for Global Entry or TSA PreCheck application fee"
+      }
+    ],
+    "protections": [
+      "Auto Rental Collision Damage Waiver",
+      "Travel Accident Insurance",
+      "Extended Warranty Protection"
+    ]
+  },
+  {
+    "id": "chase-southwest-priority",
+    "name": "Southwest Rapid Rewards® Priority Credit Card",
+    "issuer": "Chase",
+    "network": "Visa",
+    "networkColor": "#0A2F6E",
+    "annualFee": 149,
+    "totalCreditsValue": 180,
+    "nickname": "SOUTHWEST // 4118",
+    "defaultInWallet": false,
+    "last4": "4118",
+    "cardTier": "Co-Branded Airline",
+    "rewardProgram": "chase-ur",
+    "multipliers": {
+      "flights": {
+        "rate": 3,
+        "unit": "x Rapid Rewards",
+        "rule": "3x points on Southwest Airlines purchases"
+      },
+      "hotels": {
+        "rate": 2,
+        "unit": "x Rapid Rewards",
+        "rule": "2x on Rapid Rewards hotel and car rental partners"
+      },
+      "transit": {
+        "rate": 2,
+        "unit": "x Rapid Rewards",
+        "rule": "2x on local transit, commuting, and rideshare"
+      },
+      "streaming": {
+        "rate": 2,
+        "unit": "x Rapid Rewards",
+        "rule": "2x on internet, cable, phone services, and select streaming"
+      },
+      "dining": {
+        "rate": 1,
+        "unit": "x Rapid Rewards",
+        "rule": "1x standard rate"
+      },
+      "groceries": {
+        "rate": 1,
+        "unit": "x Rapid Rewards",
+        "rule": "1x standard rate"
+      },
+      "gas": {
+        "rate": 1,
+        "unit": "x Rapid Rewards",
+        "rule": "1x standard rate"
+      },
+      "everyday": {
+        "rate": 1,
+        "unit": "x Rapid Rewards",
+        "rule": "1x on all other purchases"
+      }
+    },
+    "keyCredits": [
+      {
+        "name": "Southwest Travel Credit",
+        "value": 75,
+        "cadence": "Annual",
+        "desc": " Southwest travel credit per year directly toward flights"
+      },
+      {
+        "name": "Anniversary Points",
+        "value": 105,
+        "cadence": "Annual",
+        "desc": "7,500 bonus points each year after your card anniversary"
+      },
+      {
+        "name": "4 Upgraded Boardings",
+        "value": 120,
+        "cadence": "Annual",
+        "desc": "4 Upgraded Boardings per year (positions A1-A15) when available at gate"
+      }
+    ],
+    "protections": [
+      "Baggage Delay Insurance",
+      "Lost Luggage Reimbursement",
+      "Secondary Auto Rental CDW"
+    ]
   }
 ]
