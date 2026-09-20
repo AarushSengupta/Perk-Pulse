@@ -43,7 +43,11 @@ const state = {
   homeQuickCategory: 'dining',
 
   // Wallet tab popular cards filter
-  walletIssuerFilter: 'all'
+  walletIssuerFilter: 'all',
+
+  // Statement Credit Tracker
+  claimedCredits: {}, // key: "cardId___creditName" -> { claimed, period, value, cadence, timestamp }
+  creditCadenceFilter: 'all' // 'all' | 'monthly' | 'annual'
 };
 
 // =========================================================================
@@ -51,6 +55,7 @@ const state = {
 // =========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
   loadWalletFromStorage();
+  loadClaimedCreditsFromStorage();
   setupNavigation();
   setupOfferControls();
   setupWalletControls();
@@ -97,6 +102,72 @@ function saveWalletToStorage() {
   } catch (e) {
     console.error('Error saving wallet state:', e);
   }
+}
+
+function loadClaimedCreditsFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_claimed_credits');
+    state.claimedCredits = saved ? JSON.parse(saved) : {};
+  } catch (e) {
+    state.claimedCredits = {};
+  }
+}
+
+function saveClaimedCreditsToStorage() {
+  try {
+    localStorage.setItem('perkpulse_claimed_credits', JSON.stringify(state.claimedCredits));
+  } catch (e) {
+    console.error('Error saving claimed credits state:', e);
+  }
+}
+
+function getCurrentCreditPeriod(cadence = '') {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const cad = String(cadence).toLowerCase();
+
+  if (cad.includes('/mo') || cad.includes('month')) {
+    return `${year}-${month}`;
+  }
+  if (cad.includes('semi')) {
+    return `${year}-${now.getMonth() < 6 ? 'H1' : 'H2'}`;
+  }
+  return `${year}`;
+}
+
+function isCreditClaimed(cardId, creditName, cadence) {
+  const key = `${cardId}___${creditName}`;
+  const record = state.claimedCredits[key];
+  if (!record) return false;
+  const currentPeriod = getCurrentCreditPeriod(cadence);
+  return record.period === currentPeriod && record.claimed === true;
+}
+
+function toggleCreditClaim(cardId, creditName, cadence, value) {
+  const key = `${cardId}___${creditName}`;
+  const currentPeriod = getCurrentCreditPeriod(cadence);
+  const currentlyClaimed = isCreditClaimed(cardId, creditName, cadence);
+
+  if (currentlyClaimed) {
+    delete state.claimedCredits[key];
+    showToast(`Marked unredeemed: ${creditName}`);
+  } else {
+    state.claimedCredits[key] = {
+      cardId,
+      creditName,
+      cadence,
+      value: Number(value) || 0,
+      claimed: true,
+      period: currentPeriod,
+      timestamp: new Date().toISOString()
+    };
+    showToast(`Claimed $${value} for ${creditName}`);
+  }
+
+  saveClaimedCreditsToStorage();
+  renderHomeView();
+  renderPerksView();
 }
 
 async function fetchCards() {
@@ -233,9 +304,46 @@ function renderHomeView() {
   const totalCredits = userCards.reduce((sum, c) => sum + (c.totalCreditsValue || 0), 0);
   const totalFees = userCards.reduce((sum, c) => sum + (c.annualFee || 0), 0);
   
+  // Compute actually claimed credits
+  let claimedTotalDollars = 0;
+  let atRiskCount = 0;
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemainingInMonth = daysInMonth - now.getDate();
+
+  userCards.forEach(card => {
+    (card.keyCredits || []).forEach(credit => {
+      const isClaimed = isCreditClaimed(card.id, credit.name, credit.cadence);
+      if (isClaimed) {
+        claimedTotalDollars += credit.value;
+      } else {
+        const isMonthly = String(credit.cadence).includes('/mo') || String(credit.cadence).includes('month');
+        if (isMonthly && daysRemainingInMonth <= 12) {
+          atRiskCount++;
+        }
+      }
+    });
+  });
+
+  const remainingDollars = Math.max(0, totalCredits - claimedTotalDollars);
+  const claimedPercent = totalCredits > 0 ? Math.round((claimedTotalDollars / totalCredits) * 100) : 0;
+
   document.getElementById('homeTotalCredits').textContent = `$${totalCredits.toLocaleString()}`;
-  document.getElementById('homeRemainingCredits').textContent = hasCards ? `$${Math.round(totalCredits * 0.45).toLocaleString()} remaining` : '$0 remaining';
-  document.getElementById('homeCreditsPercent').textContent = hasCards ? `${Math.round((totalCredits / (totalFees || 1)) * 100)}% ROI` : '0 Cards Connected';
+  document.getElementById('homeRemainingCredits').textContent = hasCards ? `$${remainingDollars.toLocaleString()} remaining` : '$0 remaining';
+  document.getElementById('homeCreditsPercent').textContent = hasCards ? `${claimedPercent}% Claimed` : '0 Cards Connected';
+
+  // At risk badge
+  const atRiskBadge = document.getElementById('homeCreditsAtRiskBadge');
+  if (atRiskBadge) {
+    if (atRiskCount > 0) {
+      atRiskBadge.textContent = `${atRiskCount} AT RISK`;
+      atRiskBadge.classList.remove('hidden');
+    } else {
+      atRiskBadge.classList.add('hidden');
+    }
+  }
+
+  renderHomeCreditBurn(userCards);
 
   // Active offers count: all public offers count
   const walletOffers = state.allOffers.filter(o => state.walletCards.includes(o.cardId));
@@ -330,6 +438,104 @@ function updateHomeQuickSpend() {
   document.getElementById('homeQuickCardName').textContent = bestCard ? bestCard.name : 'None';
   document.getElementById('homeQuickMultiplier').innerHTML = `${maxRate > 0 ? (unit.includes('%') ? maxRate + '%' : maxRate.toFixed(1) + 'x') : '1.0x'} <span class="text-xs font-normal">${unit}</span>`;
   document.getElementById('homeQuickRule').textContent = ruleText || (bestCard ? `Use ${bestCard.name} for optimal return.` : 'Add cards to your wallet.');
+}
+
+function renderHomeCreditBurn(userCards) {
+  const container = document.getElementById('homeCreditBurnContainer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (userCards.length === 0) {
+    container.innerHTML = `
+      <div class="py-6 text-center text-xs text-outline">
+        <span class="material-symbols-outlined text-3xl mb-1 text-outline/60">credit_card_off</span>
+        <p>Connect cards to your wallet to track monthly statement credits & annual fee burn rate.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Collect all credits across all active cards
+  const allCreditsList = [];
+  userCards.forEach(card => {
+    (card.keyCredits || []).forEach(credit => {
+      allCreditsList.push({
+        cardId: card.id,
+        cardName: card.name,
+        cardNetwork: card.network,
+        credit
+      });
+    });
+  });
+
+  if (allCreditsList.length === 0) {
+    container.innerHTML = `
+      <div class="py-6 text-center text-xs text-outline">
+        <p>None of your active cards have annual statement credit requirements.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Show top 4 credits (prioritizing monthly & unredeemed)
+  const sorted = [...allCreditsList].sort((a, b) => {
+    const aClaimed = isCreditClaimed(a.cardId, a.credit.name, a.credit.cadence);
+    const bClaimed = isCreditClaimed(b.cardId, b.credit.name, b.credit.cadence);
+    if (!aClaimed && bClaimed) return -1;
+    if (aClaimed && !bClaimed) return 1;
+    return b.credit.value - a.credit.value;
+  });
+
+  sorted.slice(0, 4).forEach(({ cardId, cardName, cardNetwork, credit }) => {
+    const claimed = isCreditClaimed(cardId, credit.name, credit.cadence);
+    const isMonthly = String(credit.cadence).includes('/mo') || String(credit.cadence).includes('month');
+    const el = document.createElement('div');
+    el.className = "p-2.5 rounded-lg bg-surface-container-lowest border border-surface-container-highest/30 flex items-center justify-between gap-3 transition-colors hover:border-surface-container-highest";
+
+    el.innerHTML = `
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between text-xs mb-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-2 h-2 rounded-full ${claimed ? 'bg-secondary' : isMonthly ? 'bg-tertiary-container animate-pulse' : 'bg-outline'} shrink-0"></span>
+            <span class="font-medium text-on-surface truncate">${credit.name}</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono ${getNetworkBadgeClass(cardNetwork)}">${cardNetwork}</span>
+          </div>
+          <span class="font-mono text-[11px] ${claimed ? 'text-secondary font-semibold' : 'text-outline'}">
+            ${claimed ? 'Claimed' : credit.cadence || 'Annual'}
+          </span>
+        </div>
+        <div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-300 ${claimed ? 'bg-secondary w-full' : 'bg-outline-variant w-0'}"></div>
+        </div>
+        <div class="flex justify-between text-[10px] font-mono text-outline mt-1">
+          <span>$${credit.value} value</span>
+          <span>${claimed ? 'Redeemed' : 'Ready to claim'}</span>
+        </div>
+      </div>
+      <button class="shrink-0 px-2.5 py-1 rounded text-[11px] font-mono font-semibold transition-all ${claimed ? 'bg-secondary/10 border border-secondary/30 text-secondary hover:bg-secondary/20' : 'bg-primary-container text-on-primary-container hover:opacity-90'}" title="${claimed ? 'Click to mark unredeemed' : 'Click to mark claimed'}">
+        ${claimed ? '✓ Done' : 'Claim'}
+      </button>
+    `;
+
+    const btn = el.querySelector('button');
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleCreditClaim(cardId, credit.name, credit.cadence, credit.value);
+    };
+
+    container.appendChild(el);
+  });
+
+  if (sorted.length > 4) {
+    const moreEl = document.createElement('div');
+    moreEl.className = "text-center pt-1";
+    moreEl.innerHTML = `
+      <button class="text-[11px] font-mono text-primary-container hover:underline" onclick="window.switchTab('perks')">
+        View & Audit All ${sorted.length} Statement Credits in Perks Tab →
+      </button>
+    `;
+    container.appendChild(moreEl);
+  }
 }
 
 // =========================================================================
@@ -1071,26 +1277,144 @@ function renderSpendRouterResult(data) {
   `;
 }
 
-// =========================================================================
-// VIEW 4: CARD PERKS & LEDGER CONTROLS
-// =========================================================================
 function setupPerksControls() {
   const annualBtn = document.getElementById('perkAnnualViewBtn');
   const monthlyBtn = document.getElementById('perkMonthlyViewBtn');
-  if (!annualBtn || !monthlyBtn) return;
+  if (annualBtn && monthlyBtn) {
+    annualBtn.addEventListener('click', () => {
+      state.perkViewMode = 'annual';
+      annualBtn.className = "px-3 py-1.5 rounded-md font-medium transition-all bg-surface-container-high text-primary-container shadow-sm";
+      monthlyBtn.className = "px-3 py-1.5 rounded-md font-medium text-on-surface-variant hover:text-on-surface transition-all";
+      renderPerksView();
+    });
 
-  annualBtn.addEventListener('click', () => {
-    state.perkViewMode = 'annual';
-    annualBtn.className = "px-3 py-1.5 rounded-md font-medium transition-all bg-surface-container-high text-primary-container shadow-sm";
-    monthlyBtn.className = "px-3 py-1.5 rounded-md font-medium text-on-surface-variant hover:text-on-surface transition-all";
-    renderPerksView();
+    monthlyBtn.addEventListener('click', () => {
+      state.perkViewMode = 'monthly';
+      monthlyBtn.className = "px-3 py-1.5 rounded-md font-medium transition-all bg-surface-container-high text-primary-container shadow-sm";
+      annualBtn.className = "px-3 py-1.5 rounded-md font-medium text-on-surface-variant hover:text-on-surface transition-all";
+      renderPerksView();
+    });
+  }
+
+  // Cadence filter buttons for credit checklist
+  const cadencePills = document.querySelectorAll('.credit-cadence-pill');
+  cadencePills.forEach(pill => {
+    pill.onclick = () => {
+      cadencePills.forEach(p => {
+        p.className = "credit-cadence-pill px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface";
+      });
+      pill.className = "credit-cadence-pill active px-2.5 py-1 rounded text-xs font-mono bg-primary-container text-on-primary-container font-semibold";
+      state.creditCadenceFilter = pill.dataset.cadence;
+      const userCards = state.allCards.filter(c => state.walletCards.includes(c.id));
+      renderCreditChecklist(userCards);
+    };
+  });
+}
+
+function renderCreditChecklist(userCards) {
+  const grid = document.getElementById('creditChecklistGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (userCards.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-xs text-outline">
+        <p>No cards connected to your wallet yet. Add cards in the Wallet tab to audit and claim your credits.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Collect all credits across wallet
+  const allCredits = [];
+  userCards.forEach(card => {
+    (card.keyCredits || []).forEach(credit => {
+      allCredits.push({
+        cardId: card.id,
+        cardName: card.name,
+        cardNetwork: card.network,
+        credit
+      });
+    });
   });
 
-  monthlyBtn.addEventListener('click', () => {
-    state.perkViewMode = 'monthly';
-    monthlyBtn.className = "px-3 py-1.5 rounded-md font-medium transition-all bg-surface-container-high text-primary-container shadow-sm";
-    annualBtn.className = "px-3 py-1.5 rounded-md font-medium text-on-surface-variant hover:text-on-surface transition-all";
-    renderPerksView();
+  if (allCredits.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-xs text-outline">
+        <p>Your connected cards don't have statement credit obligations.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Filter by cadence
+  const filter = state.creditCadenceFilter;
+  const filtered = allCredits.filter(item => {
+    const cad = String(item.credit.cadence).toLowerCase();
+    const isMonthly = cad.includes('/mo') || cad.includes('month');
+    if (filter === 'monthly') return isMonthly;
+    if (filter === 'annual') return !isMonthly;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-8 text-center text-xs text-outline">
+        <p>No statement credits match this cadence filter.</p>
+      </div>
+    `;
+    return;
+  }
+
+  filtered.forEach(({ cardId, cardName, cardNetwork, credit }) => {
+    const claimed = isCreditClaimed(cardId, credit.name, credit.cadence);
+    const isMonthly = String(credit.cadence).includes('/mo') || String(credit.cadence).includes('month');
+    const el = document.createElement('div');
+    el.className = `p-4 rounded-xl border transition-all flex flex-col justify-between space-y-3 cursor-pointer ${
+      claimed 
+        ? 'bg-surface-container-lowest border-secondary/40 shadow-sm' 
+        : 'bg-surface-container-lowest border-surface-container-highest/50 hover:border-primary-container/40'
+    }`;
+
+    el.innerHTML = `
+      <div>
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <span class="text-[10px] font-mono text-outline uppercase tracking-wider block truncate">${cardName}</span>
+            <h4 class="font-headline font-semibold text-sm text-on-surface mt-0.5 truncate">${credit.name}</h4>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="font-mono-metric font-bold text-base ${claimed ? 'text-secondary' : 'text-primary-container'}">$${credit.value}</div>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono ${isMonthly ? 'bg-tertiary-container/15 text-tertiary-container border border-tertiary-container/30' : 'bg-surface-container-high text-outline'}">
+              ${credit.cadence || 'Annual'}
+            </span>
+          </div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2 leading-relaxed">${credit.desc}</p>
+      </div>
+
+      <div class="pt-2 border-t border-surface-container-highest/30 flex items-center justify-between">
+        <div class="flex items-center gap-1.5 text-[11px] font-mono">
+          <span class="w-2 h-2 rounded-full ${claimed ? 'bg-secondary' : 'bg-outline'}"></span>
+          <span class="${claimed ? 'text-secondary font-semibold' : 'text-outline'}">
+            ${claimed ? 'Claimed This Cycle' : 'Ready to Claim'}
+          </span>
+        </div>
+        <button class="px-3 py-1 rounded text-xs font-mono font-semibold transition-all ${
+          claimed
+            ? 'bg-secondary/15 border border-secondary/40 text-secondary hover:bg-secondary/25'
+            : 'bg-primary-container text-on-primary-container hover:opacity-90'
+        }">
+          ${claimed ? '✓ Claimed' : 'Mark Claimed'}
+        </button>
+      </div>
+    `;
+
+    el.onclick = () => {
+      toggleCreditClaim(cardId, credit.name, credit.cadence, credit.value);
+    };
+
+    grid.appendChild(el);
   });
 }
 
@@ -1103,6 +1427,16 @@ function renderPerksView() {
   const totalFees = userCards.reduce((sum, c) => sum + (c.annualFee || 0), 0);
   const netSurplus = totalCredits - totalFees;
   const efficiency = totalFees > 0 ? Math.round((totalCredits / totalFees) * 100) : 100;
+
+  // Compute claimed credits in current cycle
+  let claimedTotalDollars = 0;
+  userCards.forEach(card => {
+    (card.keyCredits || []).forEach(credit => {
+      if (isCreditClaimed(card.id, credit.name, credit.cadence)) {
+        claimedTotalDollars += credit.value;
+      }
+    });
+  });
 
   const displayCredits = isMonthly ? Math.round(totalCredits / 12) : totalCredits;
   const displayFees = isMonthly ? Math.round(totalFees / 12) : totalFees;
@@ -1123,6 +1457,13 @@ function renderPerksView() {
   if (surplusEl) surplusEl.textContent = `${displaySurplus >= 0 ? '+' : ''}$${displaySurplus.toLocaleString()}${unitSuffix}`;
   if (effEl) effEl.textContent = hasCards ? `Efficiency: +${efficiency}%` : '0 Cards Connected';
 
+  // Checklist claim summary badge
+  const summaryBadge = document.getElementById('checklistClaimedSummary');
+  if (summaryBadge) {
+    const pct = totalCredits > 0 ? Math.round((claimedTotalDollars / totalCredits) * 100) : 0;
+    summaryBadge.textContent = `$${claimedTotalDollars.toLocaleString()} / $${totalCredits.toLocaleString()} Claimed (${pct}%)`;
+  }
+
   // Net return spread bar
   const spreadFeesLabel = document.getElementById('spreadFeesLabel');
   const spreadSurplusLabel = document.getElementById('spreadSurplusLabel');
@@ -1136,6 +1477,9 @@ function renderPerksView() {
   const spreadSurplusBar = document.getElementById('spreadSurplusBar');
   if (spreadFeeBar) spreadFeeBar.style.width = `${feeWidth}%`;
   if (spreadSurplusBar) spreadSurplusBar.style.width = `${surplusWidth}%`;
+
+  // Render interactive credit redemption checklist
+  renderCreditChecklist(userCards);
 
   // Card perk columns
   const columnsContainer = document.getElementById('perksCardColumns');
@@ -1355,21 +1699,38 @@ function openPerkDrawer(cardId) {
     `;
   } else {
     credits.forEach(c => {
+      const claimed = isCreditClaimed(card.id, c.name, c.cadence);
+      const isMonthly = String(c.cadence).includes('/mo') || String(c.cadence).includes('month');
       const item = document.createElement('div');
-      item.className = "pt-3 pb-2";
+      item.className = "pt-3 pb-2.5 border-b border-surface-container-highest/20 last:border-b-0";
       item.innerHTML = `
-        <div class="flex items-center justify-between text-xs">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-secondary"></span>
-            <span class="font-headline font-semibold text-on-surface text-sm">${c.name}</span>
+        <div class="flex items-center justify-between text-xs gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2 h-2 rounded-full ${claimed ? 'bg-secondary' : isMonthly ? 'bg-tertiary-container animate-pulse' : 'bg-outline'} shrink-0"></span>
+            <span class="font-headline font-semibold text-on-surface text-sm truncate">${c.name}</span>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <span class="px-2 py-0.5 rounded bg-surface-container-high text-[10px] font-mono text-outline">${c.cadence || 'Annual'}</span>
             <span class="font-mono-metric font-bold text-primary-container text-base">$${c.value}</span>
+            <button class="ml-1 px-2.5 py-1 rounded text-[11px] font-mono font-semibold transition-all ${
+              claimed 
+                ? 'bg-secondary/15 border border-secondary/40 text-secondary hover:bg-secondary/25' 
+                : 'bg-primary-container text-on-primary-container hover:opacity-90'
+            }">
+              ${claimed ? '✓ Claimed' : 'Claim'}
+            </button>
           </div>
         </div>
         <p class="text-xs text-on-surface-variant mt-1.5 pl-4 leading-relaxed">${c.desc}</p>
       `;
+
+      const btn = item.querySelector('button');
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        toggleCreditClaim(card.id, c.name, c.cadence, c.value);
+        openPerkDrawer(card.id);
+      };
+
       creditsList.appendChild(item);
     });
   }

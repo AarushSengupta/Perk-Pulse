@@ -245,57 +245,21 @@
           </div>
 
           <!-- Credit Burn Rate -->
+          <!-- Dynamic Credit Burn Rate & Claim Ledger -->
           <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40">
             <div class="flex items-center justify-between pb-3 border-b border-surface-container-highest/40">
-              <h2 class="font-headline font-semibold text-base text-on-surface">Credit Burn Rate</h2>
-              <span class="text-[10px] font-mono text-outline">CY2026</span>
+              <div class="flex items-center gap-2">
+                <h2 class="font-headline font-semibold text-base text-on-surface">Credit Burn Rate</h2>
+                <span id="homeCreditsAtRiskBadge" class="hidden px-2 py-0.5 rounded bg-tertiary-container/10 border border-tertiary-container/30 text-tertiary-container text-[10px] font-mono font-semibold animate-pulse">
+                  0 AT RISK
+                </span>
+              </div>
+              <span class="text-[10px] font-mono text-outline" id="homeCreditCycleLabel">CY2026</span>
             </div>
 
-            <div class="space-y-4 mt-4">
-              <!-- Item 1 -->
-              <div>
-                <div class="flex justify-between text-xs mb-1.5">
-                  <span class="font-medium text-on-surface">Chase Travel Credit ($300)</span>
-                  <span class="font-mono text-secondary">100% Complete</span>
-                </div>
-                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
-                  <div class="h-full rounded-full bg-primary-container" style="width: 100%"></div>
-                </div>
-                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
-                  <span>$300 redeemed</span>
-                  <span>$0 remaining</span>
-                </div>
-              </div>
-
-              <!-- Item 2 -->
-              <div>
-                <div class="flex justify-between text-xs mb-1.5">
-                  <span class="font-medium text-on-surface">Amex Airline Fee Credit ($200)</span>
-                  <span class="font-mono text-secondary">75% Used</span>
-                </div>
-                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
-                  <div class="h-full rounded-full bg-secondary" style="width: 75%"></div>
-                </div>
-                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
-                  <span>$150 redeemed (United)</span>
-                  <span>$50 remaining</span>
-                </div>
-              </div>
-
-              <!-- Item 3 -->
-              <div>
-                <div class="flex justify-between text-xs mb-1.5">
-                  <span class="font-medium text-on-surface">Venture X Annual Travel ($300)</span>
-                  <span class="font-mono text-tertiary-container">33% Used</span>
-                </div>
-                <div class="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
-                  <div class="h-full rounded-full bg-tertiary-container" style="width: 33%"></div>
-                </div>
-                <div class="flex justify-between text-[11px] font-mono text-outline mt-1">
-                  <span>$100 redeemed</span>
-                  <span>$200 remaining</span>
-                </div>
-              </div>
+            <!-- Dynamic Container for Active Wallet Credits -->
+            <div class="space-y-3.5 mt-4" id="homeCreditBurnContainer">
+              <!-- Dynamically rendered -->
             </div>
           </div>
         </div>
@@ -632,6 +596,34 @@
         <div class="w-full h-2.5 rounded-full bg-surface-container-highest overflow-hidden flex">
           <div id="spreadFeeBar" class="h-full bg-outline-variant" style="width: 60%"></div>
           <div id="spreadSurplusBar" class="h-full bg-secondary" style="width: 40%"></div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE STATEMENT CREDIT REDEMPTION CHECKLIST & MONTHLY AUDIT -->
+      <div class="bg-surface-container-low rounded-xl p-5 sm:p-6 border border-surface-container-highest/40 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-highest/40">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary text-[20px]">task_alt</span>
+              <h3 class="font-headline font-semibold text-base text-on-surface">Interactive Credit Claim Checklist</h3>
+              <span id="checklistClaimedSummary" class="px-2 py-0.5 rounded bg-secondary-container/10 border border-secondary-container/30 text-secondary text-[11px] font-mono">
+                $0 Claimed
+              </span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Track your actual monthly & annual statement credits. Click any item to check off as claimed.</p>
+          </div>
+
+          <!-- Cadence Filter Buttons -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1" id="creditCadenceFilters">
+            <button data-cadence="all" class="credit-cadence-pill active px-2.5 py-1 rounded text-xs font-mono bg-primary-container text-on-primary-container font-semibold">All Credits</button>
+            <button data-cadence="monthly" class="credit-cadence-pill px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Monthly Resets</button>
+            <button data-cadence="annual" class="credit-cadence-pill px-2.5 py-1 rounded text-xs font-mono bg-surface-container-high text-on-surface-variant hover:text-on-surface">Annual / Semi-Annual</button>
+          </div>
+        </div>
+
+        <!-- Checklist Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="creditChecklistGrid">
+          <!-- Dynamically populated -->
         </div>
       </div>
 
