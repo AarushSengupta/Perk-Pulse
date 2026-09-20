@@ -240,18 +240,68 @@ app.get('/api/perks', (req, res) => {
   });
 });
 
+// =========================================================================
+// POINT PROGRAM & CENTS-PER-POINT (CPP) VALUATION ARBITRAGE ENGINE
+// =========================================================================
+
+const DEFAULT_CPP_VALUATIONS = {
+  'chase-ur': 1.8,       // 1.8¢ per point (Hyatt / United / airline partners)
+  'amex-mr': 1.7,        // 1.7¢ per point (Delta / ANA / transfer partners)
+  'capone-miles': 1.6,   // 1.6¢ per point (Air Canada / Turkish / Avianca)
+  'citi-typ': 1.6,       // 1.6¢ per point (Choice / Turkish / Flying Blue)
+  'bilt-points': 2.05,   // 2.05¢ per point (Hyatt / Alaska / Virgin)
+  'cashback': 1.0        // 1.0¢ per dollar (Fixed baseline fiat cash back)
+};
+
+function getCardProgram(card) {
+  if (card && card.rewardProgram) return card.rewardProgram;
+  if (!card) return 'cashback';
+  const net = (card.network || '').toLowerCase();
+  const iss = (card.issuer || '').toLowerCase();
+  const name = (card.name || '').toLowerCase();
+  if (iss.includes('american express') || net.includes('amex')) {
+    if (name.includes('blue cash')) return 'cashback';
+    return 'amex-mr';
+  }
+  if (iss.includes('chase')) return 'chase-ur';
+  if (iss.includes('capital one')) {
+    if (name.includes('venture')) return 'capone-miles';
+    return 'cashback';
+  }
+  if (iss.includes('citi')) return 'citi-typ';
+  if (name.includes('bilt')) return 'bilt-points';
+  return 'cashback';
+}
+
+function computeEffectiveYield(rate, unit, card, customValuations = {}) {
+  const valuations = { ...DEFAULT_CPP_VALUATIONS, ...customValuations };
+  const isPercent = String(unit || '').includes('%');
+  if (isPercent) return Number(rate) || 0;
+  const prog = getCardProgram(card);
+  const cpp = valuations[prog] || 1.0;
+  return Number(((Number(rate) || 0) * cpp).toFixed(2));
+}
+
 /**
  * GET /api/wallet/best-cards
- * Computes the highest point multiplier or cash back percentage for each of the
+ * Computes the highest point multiplier or effective cash yield for each of the
  * 8 primary consumer spending categories based strictly on the user's active wallet.
+ * Supports dynamic Cents-Per-Point (CPP) arbitration when yieldMode='effective_yield'.
  * 
  * @route GET /api/wallet/best-cards
  * @query {string} [walletCards] - Comma-separated list of active card IDs in the user's wallet
+ * @query {string} [yieldMode] - 'multiplier' | 'effective_yield'
+ * @query {string} [cppRates] - JSON-encoded custom CPP valuations
  * @returns {Object} Recommended optimal card and rule breakdown for each category
  */
 app.get('/api/wallet/best-cards', (req, res) => {
   const cards = readJSON(CARDS_FILE);
-  const { walletCards } = req.query;
+  const { walletCards, yieldMode = 'multiplier', cppRates } = req.query;
+
+  let customCpp = {};
+  if (cppRates) {
+    try { customCpp = JSON.parse(cppRates); } catch (e) { customCpp = {}; }
+  }
 
   let activeCardIds = [];
   if (walletCards && walletCards.trim() !== '') {
@@ -276,6 +326,7 @@ app.get('/api/wallet/best-cards', (req, res) => {
   const bestPerCategory = categories.map(cat => {
     let topCard = null;
     let topMultiplier = 0;
+    let topEffectiveYield = 0;
     let topRule = '';
     let topUnit = '';
 
@@ -283,30 +334,46 @@ app.get('/api/wallet/best-cards', (req, res) => {
     if (userCards.length === 0) {
       return {
         ...cat,
-        bestCard: { name: 'No Card Selected', network: 'None', multiplierText: '0x', rule: 'Add cards to your wallet' }
+        bestCard: { name: 'No Card Selected', network: 'None', multiplierText: '0x', effectiveYieldText: '0.0%', rule: 'Add cards to your wallet' }
       };
     }
 
     // Check specific category bonus rates
     userCards.forEach(card => {
       const mult = card.multipliers && card.multipliers[cat.key];
-      if (mult && mult.rate > topMultiplier) {
-        topMultiplier = mult.rate;
-        topCard = card;
-        topRule = mult.rule;
-        topUnit = mult.unit;
+      if (mult) {
+        const yieldVal = computeEffectiveYield(mult.rate, mult.unit, card, customCpp);
+        const shouldSelect = yieldMode === 'effective_yield' 
+          ? (yieldVal > topEffectiveYield)
+          : (mult.rate > topMultiplier);
+
+        if (shouldSelect) {
+          topMultiplier = mult.rate;
+          topEffectiveYield = yieldVal;
+          topCard = card;
+          topRule = mult.rule;
+          topUnit = mult.unit;
+        }
       }
     });
 
-    // Fallback to highest uncapped everyday rate if no specific bonus exists
-    if (!topCard || topMultiplier === 0) {
+    // Fallback to highest everyday rate if no specific bonus exists
+    if (!topCard || (yieldMode === 'effective_yield' ? topEffectiveYield === 0 : topMultiplier === 0)) {
       userCards.forEach(card => {
         const base = card.multipliers && card.multipliers.everyday;
-        if (base && base.rate > topMultiplier) {
-          topMultiplier = base.rate;
-          topCard = card;
-          topRule = base.rule;
-          topUnit = base.unit;
+        if (base) {
+          const yieldVal = computeEffectiveYield(base.rate, base.unit, card, customCpp);
+          const shouldSelect = yieldMode === 'effective_yield'
+            ? (yieldVal > topEffectiveYield)
+            : (base.rate > topMultiplier);
+
+          if (shouldSelect) {
+            topMultiplier = base.rate;
+            topEffectiveYield = yieldVal;
+            topCard = card;
+            topRule = base.rule;
+            topUnit = base.unit;
+          }
         }
       });
     }
@@ -314,6 +381,9 @@ app.get('/api/wallet/best-cards', (req, res) => {
     const multiplierText = topUnit.includes('%') 
       ? `${topMultiplier}%`
       : `${topMultiplier.toFixed(1)}x`;
+
+    const effectiveYieldText = `${topEffectiveYield.toFixed(1)}%`;
+    const program = getCardProgram(topCard);
 
     return {
       ...cat,
@@ -324,7 +394,10 @@ app.get('/api/wallet/best-cards', (req, res) => {
         issuer: topCard.issuer,
         network: topCard.network,
         networkColor: topCard.networkColor,
+        rewardProgram: program,
         multiplierText,
+        effectiveYield: topEffectiveYield,
+        effectiveYieldText,
         unit: topUnit,
         rule: topRule
       }
@@ -334,6 +407,7 @@ app.get('/api/wallet/best-cards', (req, res) => {
   res.json({
     success: true,
     activeCardCount: userCards.length,
+    yieldMode,
     activeCards: userCards.map(c => ({ id: c.id, name: c.name, nickname: c.nickname, last4: c.last4 })),
     recommendations: bestPerCategory
   });
@@ -354,7 +428,12 @@ app.get('/api/wallet/best-cards', (req, res) => {
 app.get('/api/wallet/route-spend', (req, res) => {
   const cards = readJSON(CARDS_FILE);
   const offers = readJSON(OFFERS_FILE);
-  const { merchant = '', walletCards } = req.query;
+  const { merchant = '', walletCards, yieldMode = 'multiplier', cppRates } = req.query;
+
+  let customCpp = {};
+  if (cppRates) {
+    try { customCpp = JSON.parse(cppRates); } catch (e) { customCpp = {}; }
+  }
 
   let activeCardIds = [];
   if (walletCards && walletCards.trim() !== '') {
@@ -421,19 +500,28 @@ app.get('/api/wallet/route-spend', (req, res) => {
     o.merchant.toLowerCase().includes(query)
   );
 
-  // Evaluate highest multiplier card in user's active wallet
+  // Evaluate highest earning card in user's active wallet
   let topUserCard = null;
   let topUserRate = 0;
+  let topUserYield = 0;
   let topUserRule = '';
   let topUserUnit = '';
 
   userCards.forEach(c => {
     const mult = c.multipliers && c.multipliers[mappedCategory];
-    if (mult && mult.rate > topUserRate) {
-      topUserRate = mult.rate;
-      topUserCard = c;
-      topUserRule = mult.rule;
-      topUserUnit = mult.unit;
+    if (mult) {
+      const yieldVal = computeEffectiveYield(mult.rate, mult.unit, c, customCpp);
+      const isWinner = yieldMode === 'effective_yield' 
+        ? (yieldVal > topUserYield)
+        : (mult.rate > topUserRate);
+
+      if (isWinner) {
+        topUserRate = mult.rate;
+        topUserYield = yieldVal;
+        topUserCard = c;
+        topUserRule = mult.rule;
+        topUserUnit = mult.unit;
+      }
     }
   });
 
@@ -441,11 +529,19 @@ app.get('/api/wallet/route-spend', (req, res) => {
   if (!topUserCard && userCards.length > 0) {
     userCards.forEach(c => {
       const base = c.multipliers && c.multipliers.everyday;
-      if (base && base.rate > topUserRate) {
-        topUserRate = base.rate;
-        topUserCard = c;
-        topUserRule = base.rule;
-        topUserUnit = base.unit;
+      if (base) {
+        const yieldVal = computeEffectiveYield(base.rate, base.unit, c, customCpp);
+        const isWinner = yieldMode === 'effective_yield' 
+          ? (yieldVal > topUserYield)
+          : (base.rate > topUserRate);
+
+        if (isWinner) {
+          topUserRate = base.rate;
+          topUserYield = yieldVal;
+          topUserCard = c;
+          topUserRule = base.rule;
+          topUserUnit = base.unit;
+        }
       }
     });
   }
@@ -453,18 +549,34 @@ app.get('/api/wallet/route-spend', (req, res) => {
   // Evaluate benchmark top card across the entire global catalog
   let topCatalogCard = null;
   let topCatalogRate = 0;
+  let topCatalogYield = 0;
   let topCatalogRule = '';
   let topCatalogUnit = '';
 
   cards.forEach(c => {
     const mult = c.multipliers && c.multipliers[mappedCategory];
-    if (mult && mult.rate > topCatalogRate) {
-      topCatalogRate = mult.rate;
-      topCatalogCard = c;
-      topCatalogRule = mult.rule;
-      topCatalogUnit = mult.unit;
+    if (mult) {
+      const yieldVal = computeEffectiveYield(mult.rate, mult.unit, c, customCpp);
+      const isWinner = yieldMode === 'effective_yield' 
+        ? (yieldVal > topCatalogYield)
+        : (mult.rate > topCatalogRate);
+
+      if (isWinner) {
+        topCatalogRate = mult.rate;
+        topCatalogYield = yieldVal;
+        topCatalogCard = c;
+        topCatalogRule = mult.rule;
+        topCatalogUnit = mult.unit;
+      }
     }
   });
+
+  const topCard = topUserCard || topCatalogCard;
+  const chosenRate = topUserCard ? topUserRate : topCatalogRate;
+  const chosenYield = topUserCard ? topUserYield : topCatalogYield;
+  const chosenUnit = topUserCard ? topUserUnit : topCatalogUnit;
+  const chosenRule = topUserCard ? topUserRule : topCatalogRule;
+  const program = getCardProgram(topCard);
 
   res.json({
     success: true,
@@ -472,14 +584,20 @@ app.get('/api/wallet/route-spend', (req, res) => {
     merchantTitle: matchedMerchantName,
     detectedCategory: mappedCategory,
     hasWalletCards: userCards.length > 0,
-    bestCard: topUserCard || topCatalogCard,
-    topRate: topUserCard ? topUserRate : topCatalogRate,
-    topUnit: topUserCard ? topUserUnit : topCatalogUnit,
-    topRule: topUserCard ? topUserRule : topCatalogRule,
+    yieldMode,
+    bestCard: topCard,
+    topRate: chosenRate,
+    topYield: chosenYield,
+    topYieldText: `${chosenYield.toFixed(1)}%`,
+    topUnit: chosenUnit,
+    topRule: chosenRule,
+    rewardProgram: program,
     isFromWallet: Boolean(topUserCard),
-    bestCatalogAlternative: topCatalogCard && (!topUserCard || topCatalogRate > topUserRate) ? {
+    bestCatalogAlternative: topCatalogCard && (!topUserCard || (yieldMode === 'effective_yield' ? topCatalogYield > topUserYield : topCatalogRate > topUserRate)) ? {
       card: topCatalogCard,
       rate: topCatalogRate,
+      yield: topCatalogYield,
+      yieldText: `${topCatalogYield.toFixed(1)}%`,
       unit: topCatalogUnit,
       rule: topCatalogRule
     } : null,

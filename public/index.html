@@ -82,8 +82,23 @@
         </nav>
       </div>
 
-      <!-- Right: Wallet Status & Refresh -->
+      <!-- Right: Yield Mode, CPP Rates, Wallet Status & Refresh -->
       <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Yield Mode Switcher -->
+        <div class="inline-flex p-0.5 rounded-lg bg-surface-container-low border border-surface-container-highest/60 text-xs font-mono">
+          <button id="yieldModeMultiplierBtn" class="yield-toggle-btn active px-2.5 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary-container" title="Show raw card multipliers (e.g. 4.0x, 3.0x)">
+            Multiplier (x)
+          </button>
+          <button id="yieldModeYieldBtn" class="yield-toggle-btn px-2.5 py-1 rounded text-xs font-semibold text-outline hover:text-on-surface" title="Show effective cash yield based on point valuations (e.g. 6.8%)">
+            Yield (%)
+          </button>
+        </div>
+
+        <button id="openCppModalBtn" title="Configure Cents-Per-Point (CPP) Program Valuations" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container hover:text-primary-container text-outline text-xs font-mono transition-colors">
+          <span class="material-symbols-outlined text-[15px] text-tertiary-container">tune</span>
+          <span class="hidden sm:inline">CPP Rates</span>
+        </button>
+
         <button id="openWalletModalBtn" class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-low text-xs text-on-surface-variant border border-surface-container-highest/50 hover:border-primary-container/50 transition-colors">
           <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
           <span id="headerCardCount">0 Cards Synced</span>
@@ -954,6 +969,124 @@
         <div class="flex items-center gap-2">
           <button id="selectAllCardsBtn" class="px-3 py-1.5 rounded-lg border border-surface-container-highest text-xs text-on-surface hover:bg-surface-container transition-colors">Select All</button>
           <button id="applyWalletCardsBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity">Apply to Wallet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Point Valuations (CPP) Settings Modal -->
+  <div id="cppModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center p-4">
+    <div class="bg-surface-container-low border border-surface-container-highest rounded-2xl max-w-lg w-full flex flex-col overflow-hidden shadow-2xl">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-surface-container-highest flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-primary-container">Valuation Arbitrage Settings</span>
+          <h2 class="text-lg font-headline font-bold text-on-surface mt-0.5">Cents-Per-Point (CPP) Valuations</h2>
+          <p class="text-xs text-outline mt-0.5">Customize how much you value each loyalty currency. Effective yields and spend routing update dynamically.</p>
+        </div>
+        <button id="closeCppModalBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Inputs) -->
+      <div class="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
+        <!-- Chase UR -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Chase Ultimate Rewards®</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono badge-chase">UR</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">World of Hyatt, United, 1.5x Sapphire Reserve portal</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="number" step="0.05" min="0.5" max="5.0" id="cppInputChase" class="w-16 px-2 py-1 text-right text-xs font-mono font-bold bg-surface-container rounded border border-surface-container-highest text-primary-container focus:border-primary-container outline-none" value="1.8"/>
+            <span class="text-xs font-mono text-outline">¢ / pt</span>
+          </div>
+        </div>
+
+        <!-- Amex MR -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Amex Membership Rewards®</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono badge-amex">MR</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">ANA, Delta, Air France/KLM Flying Blue, British Airways</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="number" step="0.05" min="0.5" max="5.0" id="cppInputAmex" class="w-16 px-2 py-1 text-right text-xs font-mono font-bold bg-surface-container rounded border border-surface-container-highest text-primary-container focus:border-primary-container outline-none" value="1.7"/>
+            <span class="text-xs font-mono text-outline">¢ / pt</span>
+          </div>
+        </div>
+
+        <!-- Bilt Rewards -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Bilt Rewards Points</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono badge-bilt">Bilt</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Hyatt, Alaska Airlines, Rent Day bonus promotions</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="number" step="0.05" min="0.5" max="5.0" id="cppInputBilt" class="w-16 px-2 py-1 text-right text-xs font-mono font-bold bg-surface-container rounded border border-surface-container-highest text-primary-container focus:border-primary-container outline-none" value="2.05"/>
+            <span class="text-xs font-mono text-outline">¢ / pt</span>
+          </div>
+        </div>
+
+        <!-- Capital One Miles -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Capital One Miles</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono badge-capone">C1</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Air Canada Aeroplan, Turkish Miles&Smiles, Avianca</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="number" step="0.05" min="0.5" max="5.0" id="cppInputCapOne" class="w-16 px-2 py-1 text-right text-xs font-mono font-bold bg-surface-container rounded border border-surface-container-highest text-primary-container focus:border-primary-container outline-none" value="1.6"/>
+            <span class="text-xs font-mono text-outline">¢ / pt</span>
+          </div>
+        </div>
+
+        <!-- Citi ThankYou -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Citi ThankYou® Points</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono badge-citi">TYP</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Choice Privileges 1:2 transfer ratio, Wyndham, Virgin</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="number" step="0.05" min="0.5" max="5.0" id="cppInputCiti" class="w-16 px-2 py-1 text-right text-xs font-mono font-bold bg-surface-container rounded border border-surface-container-highest text-primary-container focus:border-primary-container outline-none" value="1.6"/>
+            <span class="text-xs font-mono text-outline">¢ / pt</span>
+          </div>
+        </div>
+
+        <!-- Cash Back Baseline -->
+        <div class="p-3 rounded-xl bg-surface-container-lowest border border-surface-container-highest/40 flex items-center justify-between gap-4 opacity-80">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Fixed Cash Back Baseline</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-surface-container-high text-secondary">CASH</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Statement balance credits, direct deposits, checks</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-xs font-mono font-bold text-secondary">1.00 ¢ / $</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-surface-container-highest bg-surface-container-lowest flex items-center justify-between">
+        <button id="resetCppDefaultsBtn" class="text-xs text-outline hover:text-on-surface font-mono transition-colors">Reset Defaults</button>
+        <div class="flex items-center gap-2">
+          <button id="cancelCppBtn" class="px-3 py-1.5 rounded-lg border border-surface-container-highest text-xs text-on-surface hover:bg-surface-container transition-colors">Cancel</button>
+          <button id="saveCppBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity">Save & Apply</button>
         </div>
       </div>
     </div>

@@ -47,7 +47,18 @@ const state = {
 
   // Statement Credit Tracker
   claimedCredits: {}, // key: "cardId___creditName" -> { claimed, period, value, cadence, timestamp }
-  creditCadenceFilter: 'all' // 'all' | 'monthly' | 'annual'
+  creditCadenceFilter: 'all', // 'all' | 'monthly' | 'annual'
+
+  // Cents-Per-Point (CPP) Valuation Engine & Yield Mode
+  yieldMode: 'multiplier', // 'multiplier' | 'effective_yield'
+  cppValuations: {
+    'chase-ur': 1.8,
+    'amex-mr': 1.7,
+    'bilt-points': 2.05,
+    'capone-miles': 1.6,
+    'citi-typ': 1.6,
+    'cashback': 1.0
+  }
 };
 
 // =========================================================================
@@ -56,10 +67,12 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
   loadWalletFromStorage();
   loadClaimedCreditsFromStorage();
+  loadCppFromStorage();
   setupNavigation();
   setupOfferControls();
   setupWalletControls();
   setupPerksControls();
+  setupCppControls();
   setupDrawer();
   setupSpendRouter();
   startRefreshTimer();
@@ -168,6 +181,142 @@ function toggleCreditClaim(cardId, creditName, cadence, value) {
   saveClaimedCreditsToStorage();
   renderHomeView();
   renderPerksView();
+}
+
+// =========================================================================
+// CPP VALUATION & YIELD MODE ENGINE
+// =========================================================================
+const DEFAULT_CPP_VALUATIONS = {
+  'chase-ur': 1.8,
+  'amex-mr': 1.7,
+  'bilt-points': 2.05,
+  'capone-miles': 1.6,
+  'citi-typ': 1.6,
+  'cashback': 1.0
+};
+
+function loadCppFromStorage() {
+  try {
+    const savedYield = localStorage.getItem('perkpulse_yield_mode');
+    if (savedYield) state.yieldMode = savedYield;
+
+    const savedCpp = localStorage.getItem('perkpulse_cpp_valuations');
+    if (savedCpp) {
+      state.cppValuations = { ...DEFAULT_CPP_VALUATIONS, ...JSON.parse(savedCpp) };
+    }
+  } catch (e) {
+    state.yieldMode = 'multiplier';
+    state.cppValuations = { ...DEFAULT_CPP_VALUATIONS };
+  }
+}
+
+function saveCppToStorage() {
+  try {
+    localStorage.setItem('perkpulse_yield_mode', state.yieldMode);
+    localStorage.setItem('perkpulse_cpp_valuations', JSON.stringify(state.cppValuations));
+  } catch (e) {
+    console.error('Error saving CPP state:', e);
+  }
+}
+
+function setupCppControls() {
+  // Yield mode toggle buttons (Header)
+  const multBtn = document.getElementById('yieldModeMultiplierBtn');
+  const yieldBtn = document.getElementById('yieldModeYieldBtn');
+
+  function updateYieldToggleUI() {
+    const isYield = state.yieldMode === 'effective_yield';
+    if (multBtn && yieldBtn) {
+      if (isYield) {
+        yieldBtn.className = "yield-toggle-btn active px-2.5 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary-container";
+        multBtn.className = "yield-toggle-btn px-2.5 py-1 rounded text-xs font-semibold text-outline hover:text-on-surface";
+      } else {
+        multBtn.className = "yield-toggle-btn active px-2.5 py-1 rounded text-xs font-semibold bg-primary-container text-on-primary-container";
+        yieldBtn.className = "yield-toggle-btn px-2.5 py-1 rounded text-xs font-semibold text-outline hover:text-on-surface";
+      }
+    }
+  }
+
+  if (multBtn) {
+    multBtn.addEventListener('click', () => {
+      state.yieldMode = 'multiplier';
+      saveCppToStorage();
+      updateYieldToggleUI();
+      showToast('Switched to raw point multiplier view');
+      renderAllViews();
+    });
+  }
+
+  if (yieldBtn) {
+    yieldBtn.addEventListener('click', () => {
+      state.yieldMode = 'effective_yield';
+      saveCppToStorage();
+      updateYieldToggleUI();
+      showToast('Switched to effective cash yield (%) view');
+      renderAllViews();
+    });
+  }
+
+  updateYieldToggleUI();
+
+  // CPP Settings Modal controls
+  const modalOverlay = document.getElementById('cppModalOverlay');
+  const openBtn = document.getElementById('openCppModalBtn');
+  const closeBtn = document.getElementById('closeCppModalBtn');
+  const cancelBtn = document.getElementById('cancelCppBtn');
+  const resetBtn = document.getElementById('resetCppDefaultsBtn');
+  const saveBtn = document.getElementById('saveCppBtn');
+
+  const inputChase = document.getElementById('cppInputChase');
+  const inputAmex = document.getElementById('cppInputAmex');
+  const inputBilt = document.getElementById('cppInputBilt');
+  const inputCapOne = document.getElementById('cppInputCapOne');
+  const inputCiti = document.getElementById('cppInputCiti');
+
+  function syncInputsWithState() {
+    if (inputChase) inputChase.value = state.cppValuations['chase-ur'] || 1.8;
+    if (inputAmex) inputAmex.value = state.cppValuations['amex-mr'] || 1.7;
+    if (inputBilt) inputBilt.value = state.cppValuations['bilt-points'] || 2.05;
+    if (inputCapOne) inputCapOne.value = state.cppValuations['capone-miles'] || 1.6;
+    if (inputCiti) inputCiti.value = state.cppValuations['citi-typ'] || 1.6;
+  }
+
+  function openCppModal() {
+    syncInputsWithState();
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeCppModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openCppModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeCppModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeCppModal);
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      state.cppValuations = { ...DEFAULT_CPP_VALUATIONS };
+      syncInputsWithState();
+      showToast('Valuations reset to market defaults');
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      state.cppValuations['chase-ur'] = parseFloat(inputChase?.value) || 1.8;
+      state.cppValuations['amex-mr'] = parseFloat(inputAmex?.value) || 1.7;
+      state.cppValuations['bilt-points'] = parseFloat(inputBilt?.value) || 2.05;
+      state.cppValuations['capone-miles'] = parseFloat(inputCapOne?.value) || 1.6;
+      state.cppValuations['citi-typ'] = parseFloat(inputCiti?.value) || 1.6;
+      state.cppValuations['cashback'] = 1.0;
+
+      saveCppToStorage();
+      closeCppModal();
+      showToast('Valuations saved & effective yields recalculated');
+      renderAllViews();
+    });
+  }
 }
 
 async function fetchCards() {
@@ -982,12 +1131,15 @@ function renderWalletView() {
   renderPopularCardsPicker();
 
   // 3. Render "Best Card For Each Spend Category" 8-grid
-  fetch(`/api/wallet/best-cards?walletCards=${state.walletCards.join(',')}`)
+  const cppEncoded = encodeURIComponent(JSON.stringify(state.cppValuations));
+  fetch(`/api/wallet/best-cards?walletCards=${state.walletCards.join(',')}&yieldMode=${state.yieldMode}&cppRates=${cppEncoded}`)
     .then(r => r.json())
     .then(json => {
       if (!json.success) return;
       const grid = document.getElementById('bestCardsGrid');
       grid.innerHTML = '';
+
+      const isYieldMode = state.yieldMode === 'effective_yield';
 
       json.recommendations.forEach(cat => {
         const tile = document.createElement('div');
@@ -999,6 +1151,13 @@ function renderWalletView() {
         tile.onclick = (e) => {
           if (!e.target.closest('button')) openRuleDrawer(cat.key);
         };
+
+        const mainMetric = hasCard 
+          ? (isYieldMode ? best.effectiveYieldText : best.multiplierText) 
+          : '—';
+        const subMetric = hasCard
+          ? (isYieldMode ? `${best.multiplierText} • ${(state.cppValuations[best.rewardProgram] || 1.0)}¢/pt` : best.unit)
+          : 'No card selected';
 
         tile.innerHTML = `
           <div>
@@ -1012,10 +1171,10 @@ function renderWalletView() {
             <p class="text-xs text-outline mt-0.5">${cat.subtitle}</p>
 
             <div class="my-4">
-              <div class="text-3xl font-bold font-mono-metric ${hasCard ? 'text-primary-container' : 'text-outline'}">
-                ${hasCard ? best.multiplierText : '—'}
+              <div class="text-3xl font-bold font-mono-metric ${hasCard ? (isYieldMode ? 'text-secondary' : 'text-primary-container') : 'text-outline'}">
+                ${mainMetric} ${isYieldMode && hasCard ? '<span class="text-xs font-normal font-headline text-outline">ROI</span>' : ''}
               </div>
-              <span class="text-xs font-mono text-outline mt-0.5 block">${hasCard ? best.unit : 'No card selected'}</span>
+              <span class="text-xs font-mono text-outline mt-0.5 block">${subMetric}</span>
             </div>
           </div>
 
@@ -1193,7 +1352,8 @@ function setupSpendRouter() {
 
     timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/wallet/route-spend?merchant=${encodeURIComponent(query)}&walletCards=${state.walletCards.join(',')}`);
+        const cppEncoded = encodeURIComponent(JSON.stringify(state.cppValuations));
+        const res = await fetch(`/api/wallet/route-spend?merchant=${encodeURIComponent(query)}&walletCards=${state.walletCards.join(',')}&yieldMode=${state.yieldMode}&cppRates=${cppEncoded}`);
         const json = await res.json();
         if (json.success) {
           renderSpendRouterResult(json);
@@ -1215,10 +1375,14 @@ function renderSpendRouterResult(data) {
   const hasUserCards = state.walletCards.length > 0;
   const isFromWallet = data.isFromWallet;
   const storeName = data.merchantTitle || data.merchant;
+  const isYield = state.yieldMode === 'effective_yield';
 
   const rateText = data.topRate 
     ? (data.topUnit && data.topUnit.includes('%') ? `${data.topRate}%` : `${data.topRate.toFixed(1)}x`) 
     : '2x Base';
+
+  const yieldText = data.topYieldText || `${data.topYield || 0}%`;
+  const programCpp = state.cppValuations[data.rewardProgram] || 1.0;
 
   resultBox.innerHTML = `
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1239,12 +1403,20 @@ function renderSpendRouterResult(data) {
 
         <h4 class="text-lg font-headline font-bold text-on-surface mt-1">${card ? card.name : 'No Card Matched'}</h4>
         <p class="text-xs text-outline mt-0.5">${data.topRule || (card ? card.multipliers?.[data.detectedCategory]?.rule : 'Optimal spend card')}</p>
+        
+        <!-- CPP Valuation Arbitrage Explanation -->
+        <div class="mt-2 text-[11px] font-mono text-secondary flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[14px]">calculate</span>
+          <span>Valuation: ${rateText} @ ${programCpp}¢/pt = <strong>${yieldText} Effective Cash Yield</strong></span>
+        </div>
       </div>
 
       <div class="flex items-center gap-4 shrink-0">
         <div class="text-right">
-          <div class="text-2xl font-bold font-mono-metric text-primary-container">${rateText}</div>
-          <span class="text-xs text-secondary font-medium">${card ? card.network : 'Card'} Multiplier</span>
+          <div class="text-2xl font-bold font-mono-metric ${isYield ? 'text-secondary' : 'text-primary-container'}">
+            ${isYield ? yieldText : rateText}
+          </div>
+          <span class="text-xs text-outline font-mono">${isYield ? `${rateText} raw` : `${yieldText} yield`}</span>
         </div>
         ${(!isFromWallet && card) ? `
           <button class="px-3 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity font-mono" onclick="toggleCardInWallet('${card.id}')">
