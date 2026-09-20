@@ -61,7 +61,10 @@ const state = {
     'capone-miles': 1.6,
     'citi-typ': 1.6,
     'cashback': 1.0
-  }
+  },
+
+  // Sign-Up Bonus (SUB) Minimum Spend Velocity Tracker
+  activeSubs: [] // [ { id, cardId, cardName, targetSpend, currentSpend, deadline, reward, isPriority } ]
 };
 
 // =========================================================================
@@ -71,11 +74,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadWalletFromStorage();
   loadClaimedCreditsFromStorage();
   loadCppFromStorage();
+  loadSubsFromStorage();
   setupNavigation();
   setupOfferControls();
   setupWalletControls();
   setupPerksControls();
   setupCppControls();
+  setupSubControls();
   setupDrawer();
   setupSpendRouter();
   startRefreshTimer();
@@ -149,6 +154,23 @@ function saveClaimedCreditsToStorage() {
     localStorage.setItem('perkpulse_claimed_credits', JSON.stringify(state.claimedCredits));
   } catch (e) {
     console.error('Error saving claimed credits state:', e);
+  }
+}
+
+function loadSubsFromStorage() {
+  try {
+    const saved = localStorage.getItem('perkpulse_active_subs');
+    state.activeSubs = saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    state.activeSubs = [];
+  }
+}
+
+function saveSubsToStorage() {
+  try {
+    localStorage.setItem('perkpulse_active_subs', JSON.stringify(state.activeSubs));
+  } catch (e) {
+    console.error('Error saving SUB state:', e);
   }
 }
 
@@ -512,6 +534,7 @@ function renderHomeView() {
   }
 
   renderHomeCreditBurn(userCards);
+  renderHomeSubWidget();
 
   // Active offers count: all public offers count
   const walletOffers = state.allOffers.filter(o => state.walletCards.includes(o.cardId));
@@ -1176,6 +1199,298 @@ window.deleteCustomCard = function(cardId) {
   renderAllViews();
 };
 
+// =========================================================================
+// SIGN-UP BONUS (SUB) VELOCITY ENGINE
+// =========================================================================
+function setupSubControls() {
+  const modalOverlay = document.getElementById('subModalOverlay');
+  const openWalletBtn = document.getElementById('openSubModalBtn');
+  const closeBtn = document.getElementById('closeSubModalBtn');
+  const cancelBtn = document.getElementById('cancelSubBtn');
+  const saveBtn = document.getElementById('saveSubBtn');
+  const deleteBtn = document.getElementById('deleteSubBtn');
+
+  function openSubModal(subId = null) {
+    const cardSelect = document.getElementById('subCardSelect');
+    if (cardSelect) {
+      cardSelect.innerHTML = '';
+      state.allCards.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name} (${c.issuer} • ${c.network})`;
+        cardSelect.appendChild(opt);
+      });
+    }
+
+    const titleEl = document.getElementById('subModalTitle');
+    const idInput = document.getElementById('subIdInput');
+    const targetInput = document.getElementById('subTargetSpendInput');
+    const currentInput = document.getElementById('subCurrentSpendInput');
+    const deadlineInput = document.getElementById('subDeadlineInput');
+    const rewardInput = document.getElementById('subRewardInput');
+    const priorityToggle = document.getElementById('subPriorityToggle');
+
+    if (subId) {
+      const sub = state.activeSubs.find(s => s.id === subId);
+      if (sub) {
+        if (titleEl) titleEl.textContent = 'Edit Sign-Up Bonus (SUB)';
+        if (idInput) idInput.value = sub.id;
+        if (cardSelect) cardSelect.value = sub.cardId;
+        if (targetInput) targetInput.value = sub.targetSpend;
+        if (currentInput) currentInput.value = sub.currentSpend;
+        if (deadlineInput) deadlineInput.value = sub.deadline;
+        if (rewardInput) rewardInput.value = sub.reward;
+        if (priorityToggle) priorityToggle.checked = sub.isPriority !== false;
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+      }
+    } else {
+      if (titleEl) titleEl.textContent = 'Track Sign-Up Bonus (SUB)';
+      if (idInput) idInput.value = '';
+      if (cardSelect && state.walletCards.length > 0) {
+        cardSelect.value = state.walletCards[0];
+      }
+      if (targetInput) targetInput.value = '4000';
+      if (currentInput) currentInput.value = '0';
+      
+      // Default 90 days from today
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() + 90);
+      if (deadlineInput) deadlineInput.value = defaultDate.toISOString().split('T')[0];
+      
+      if (rewardInput) rewardInput.value = '75,000 Points Welcome Bonus';
+      if (priorityToggle) priorityToggle.checked = true;
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+    }
+
+    if (modalOverlay) modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function closeSubModal() {
+    if (modalOverlay) modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+  }
+
+  window.openSubModal = openSubModal;
+  window.closeSubModal = closeSubModal;
+
+  if (openWalletBtn) openWalletBtn.addEventListener('click', () => openSubModal());
+  if (closeBtn) closeBtn.addEventListener('click', closeSubModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeSubModal);
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      const id = document.getElementById('subIdInput')?.value;
+      if (id) {
+        state.activeSubs = state.activeSubs.filter(s => s.id !== id);
+        saveSubsToStorage();
+        closeSubModal();
+        showToast('Sign-Up Bonus tracker deleted');
+        renderAllViews();
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const id = document.getElementById('subIdInput')?.value;
+      const cardId = document.getElementById('subCardSelect')?.value;
+      const targetSpend = parseFloat(document.getElementById('subTargetSpendInput')?.value) || 0;
+      const currentSpend = parseFloat(document.getElementById('subCurrentSpendInput')?.value) || 0;
+      const deadline = document.getElementById('subDeadlineInput')?.value;
+      const reward = document.getElementById('subRewardInput')?.value?.trim();
+      const isPriority = document.getElementById('subPriorityToggle')?.checked !== false;
+
+      if (!cardId || targetSpend <= 0 || !deadline || !reward) {
+        showToast('Please fill in required target spend, deadline, and bonus reward');
+        return;
+      }
+
+      const cardObj = state.allCards.find(c => c.id === cardId);
+      const cardName = cardObj ? cardObj.name : 'Credit Card';
+
+      if (id) {
+        // Update existing
+        const idx = state.activeSubs.findIndex(s => s.id === id);
+        if (idx !== -1) {
+          state.activeSubs[idx] = {
+            id,
+            cardId,
+            cardName,
+            targetSpend,
+            currentSpend,
+            deadline,
+            reward,
+            isPriority
+          };
+        }
+      } else {
+        // Create new
+        state.activeSubs.push({
+          id: `sub-${Date.now()}`,
+          cardId,
+          cardName,
+          targetSpend,
+          currentSpend,
+          deadline,
+          reward,
+          isPriority
+        });
+      }
+
+      // Automatically add card to active wallet if not already there
+      if (cardId && !state.walletCards.includes(cardId)) {
+        state.walletCards.push(cardId);
+        saveWalletToStorage();
+      }
+
+      saveSubsToStorage();
+      closeSubModal();
+      showToast(`Sign-Up Bonus tracker saved for ${cardName}!`);
+      renderAllViews();
+    });
+  }
+}
+
+window.quickLogSubSpend = function(subId, amount) {
+  const sub = state.activeSubs.find(s => s.id === subId);
+  if (!sub) return;
+  sub.currentSpend = Math.max(0, (sub.currentSpend || 0) + amount);
+  saveSubsToStorage();
+  showToast(`+$${amount} logged to ${sub.cardName} (${Math.round((sub.currentSpend / sub.targetSpend) * 100)}% of target)`);
+  renderHomeSubWidget();
+};
+
+function renderHomeSubWidget() {
+  const container = document.getElementById('homeSubWidget');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (state.activeSubs.length === 0) {
+    container.className = "rounded-xl border border-surface-container-highest/40 bg-surface-container-low transition-all";
+    container.innerHTML = `
+      <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-secondary shrink-0">
+            <span class="material-symbols-outlined text-2xl">verified</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-headline font-semibold text-sm text-on-surface">Sign-Up Bonus (SUB) Velocity Engine</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-surface-container-high text-outline">0 Tracked</span>
+            </div>
+            <p class="text-xs text-outline mt-0.5">Track minimum spend deadlines, daily required velocity, and prioritize your bonus card in the spend router.</p>
+          </div>
+        </div>
+        <button onclick="openSubModal()" class="px-3.5 py-2 rounded-lg bg-surface-container-high border border-surface-container-highest text-xs font-semibold text-on-surface hover:border-secondary transition-colors shrink-0 flex items-center gap-1.5 font-mono">
+          <span class="material-symbols-outlined text-[16px] text-secondary">add_circle</span>
+          <span>+ Track Card Bonus</span>
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.className = "rounded-xl border border-secondary/30 bg-surface-container-low space-y-4 p-5 transition-all";
+  
+  let html = `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-highest/40">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-secondary/15 flex items-center justify-center text-secondary">
+          <span class="material-symbols-outlined text-[18px]">verified</span>
+        </div>
+        <div>
+          <h3 class="font-headline font-semibold text-sm sm:text-base text-on-surface">Active Sign-Up Bonus (SUB) Velocity Engine</h3>
+          <p class="text-xs text-outline">Deterministic run-rate monitoring and swipe advisor priority.</p>
+        </div>
+      </div>
+      <button onclick="openSubModal()" class="self-start sm:self-auto px-2.5 py-1 rounded-lg bg-surface-container-high border border-surface-container-highest text-xs font-mono font-semibold text-on-surface hover:border-secondary transition-colors flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px] text-secondary">add</span>
+        <span>Track Another</span>
+      </button>
+    </div>
+    <div class="space-y-4">
+  `;
+
+  state.activeSubs.forEach(sub => {
+    const pct = Math.min(100, Math.round((sub.currentSpend / sub.targetSpend) * 100));
+    const remaining = Math.max(0, sub.targetSpend - sub.currentSpend);
+    const deadlineDate = new Date(sub.deadline);
+    const now = new Date();
+    const daysLeft = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
+    const dailyPace = (daysLeft > 0 && remaining > 0) ? Math.round(remaining / daysLeft) : 0;
+    const isCompleted = sub.currentSpend >= sub.targetSpend;
+    const isExpired = daysLeft < 0 && !isCompleted;
+
+    html += `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-surface-container-highest/50 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-headline font-bold text-sm sm:text-base text-on-surface">${sub.cardName}</span>
+              ${sub.isPriority ? `
+                <span class="px-2 py-0.5 rounded bg-secondary/15 text-secondary border border-secondary/40 text-[10px] font-mono font-semibold flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">bolt</span>
+                  <span>ROUTER PRIORITY</span>
+                </span>
+              ` : ''}
+              ${isCompleted ? `
+                <span class="px-2 py-0.5 rounded bg-secondary/20 text-secondary text-[10px] font-mono font-bold">🎉 UNLOCKED</span>
+              ` : (isExpired ? `
+                <span class="px-2 py-0.5 rounded bg-error/20 text-error text-[10px] font-mono font-bold">EXPIRED</span>
+              ` : `
+                <span class="px-2 py-0.5 rounded bg-primary-container/20 text-primary-container text-[10px] font-mono">${daysLeft}d left</span>
+              `)}
+            </div>
+            <p class="text-xs text-secondary font-mono mt-0.5">Reward: ${sub.reward}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openSubModal('${sub.id}')" class="px-2.5 py-1 rounded bg-surface-container-high text-outline hover:text-on-surface text-xs font-mono transition-colors">
+              Edit / Rules
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="text-on-surface font-semibold">$${sub.currentSpend.toLocaleString()} <span class="text-outline font-normal">of $${sub.targetSpend.toLocaleString()}</span></span>
+            <span class="${isCompleted ? 'text-secondary font-bold' : 'text-primary-container'}">${pct}%</span>
+          </div>
+          <div class="w-full h-2.5 rounded-full bg-surface-container-highest overflow-hidden">
+            <div class="h-full ${isCompleted ? 'bg-secondary' : 'bg-primary-container'} transition-all duration-300 rounded-full" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        <!-- Metrics & Quick Log Buttons -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs">
+          <div class="text-outline flex items-center gap-3 font-mono text-[11px]">
+            ${isCompleted ? `
+              <span class="text-secondary font-semibold">Requirement fulfilled! Congratulations.</span>
+            ` : `
+              <span>Remaining: <strong class="text-on-surface">$${remaining.toLocaleString()}</strong></span>
+              <span>•</span>
+              <span>Pace: <strong class="${dailyPace > 150 ? 'text-tertiary-container' : 'text-secondary'}">$${dailyPace}/day</strong></span>
+              <span>•</span>
+              <span>Deadline: <strong>${sub.deadline}</strong></span>
+            `}
+          </div>
+
+          ${!isCompleted ? `
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-[10px] font-mono text-outline mr-1">Quick Log:</span>
+              <button onclick="quickLogSubSpend('${sub.id}', 50)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container border border-surface-container-highest text-[11px] font-mono text-on-surface">+ $50</button>
+              <button onclick="quickLogSubSpend('${sub.id}', 100)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container border border-surface-container-highest text-[11px] font-mono text-on-surface">+ $100</button>
+              <button onclick="quickLogSubSpend('${sub.id}', 250)" class="px-2 py-0.5 rounded bg-surface-container-high hover:bg-surface-container border border-surface-container-highest text-[11px] font-mono text-secondary font-semibold">+ $250</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
 function renderCardSelectionList() {
   const container = document.getElementById('cardSelectionList');
   if (!container) return;
@@ -1527,7 +1842,32 @@ function renderSpendRouterResult(data) {
   const yieldText = data.topYieldText || `${data.topYield || 0}%`;
   const programCpp = state.cppValuations[data.rewardProgram] || 1.0;
 
-  resultBox.innerHTML = `
+  // Sign-Up Bonus Priority Mode Routing
+  const prioritySub = state.activeSubs.find(s => s.isPriority && (s.currentSpend < s.targetSpend));
+  const priorityHtml = prioritySub ? `
+    <div class="mb-4 p-4 rounded-xl bg-secondary/10 border border-secondary/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg bg-secondary/20 text-secondary flex items-center justify-center shrink-0 mt-0.5">
+          <span class="material-symbols-outlined text-[18px]">verified</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-secondary font-bold">🎯 PRIORITY ROUTER MODE: SIGN-UP BONUS IN PROGRESS</span>
+          </div>
+          <div class="text-sm font-headline font-bold text-on-surface mt-0.5">Swipe <u>${prioritySub.cardName}</u> for this transaction</div>
+          <p class="text-xs text-on-surface-variant mt-0.5">
+            You need <strong class="text-secondary font-mono">$${(prioritySub.targetSpend - prioritySub.currentSpend).toLocaleString()}</strong> more by <strong class="text-on-surface font-mono">${prioritySub.deadline}</strong> to capture <strong>${prioritySub.reward}</strong>.
+            Priority mode overrides category multipliers to guarantee you hit the welcome bonus spend threshold.
+          </p>
+        </div>
+      </div>
+      <button onclick="quickLogSubSpend('${prioritySub.id}', 50)" class="px-3 py-1.5 rounded-lg bg-secondary text-surface-container-lowest text-xs font-semibold hover:opacity-90 transition-opacity shrink-0 font-mono">
+        + Log $50 Spend
+      </button>
+    </div>
+  ` : '';
+
+  resultBox.innerHTML = priorityHtml + `
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="min-w-0">
         <div class="flex items-center gap-2 flex-wrap">

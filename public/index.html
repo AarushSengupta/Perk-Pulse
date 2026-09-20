@@ -205,6 +205,11 @@
         </div>
       </div>
 
+      <!-- Sign-Up Bonus (SUB) Minimum Spend Tracker Widget -->
+      <div id="homeSubWidget" class="rounded-xl border transition-all">
+        <!-- Dynamically populated -->
+      </div>
+
       <!-- Split Layout: Top Expiring Offers (Left) & Spend Engine / Burn Rate (Right) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Left: Top Expiring Offers Table (7 cols) -->
@@ -427,6 +432,10 @@
           </h1>
         </div>
         <div class="flex items-center gap-2 self-start sm:self-auto">
+          <button id="openSubModalBtn" class="px-3 py-2 rounded-lg bg-surface-container-high border border-surface-container-highest/60 text-xs font-semibold text-on-surface hover:border-secondary/60 transition-colors flex items-center gap-1.5 font-mono">
+            <span class="material-symbols-outlined text-[16px] text-secondary">verified</span>
+            <span>Track Bonus</span>
+          </button>
           <button id="openCustomCardModalBtn" class="px-3 py-2 rounded-lg bg-surface-container-high border border-surface-container-highest/60 text-xs font-semibold text-on-surface hover:border-primary-container/60 transition-colors flex items-center gap-1.5 font-mono">
             <span class="material-symbols-outlined text-[16px] text-primary-container">edit_square</span>
             <span>Custom Card</span>
@@ -1214,6 +1223,83 @@
         <div class="flex items-center gap-2">
           <button id="cancelCustomCardBtn" class="px-3 py-1.5 rounded-lg border border-surface-container-highest text-xs text-on-surface hover:bg-surface-container transition-colors">Cancel</button>
           <button id="saveCustomCardBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity">Save Custom Card</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign-Up Bonus (SUB) Tracker Modal -->
+  <div id="subModalOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center p-4">
+    <div class="bg-surface-container-low border border-surface-container-highest rounded-2xl max-w-lg w-full flex flex-col overflow-hidden shadow-2xl">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-surface-container-highest flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">verified</span>
+            <span class="text-[10px] font-mono uppercase tracking-widest text-primary-container">Bonus Velocity Engine</span>
+          </div>
+          <h2 class="text-lg font-headline font-bold text-on-surface mt-0.5" id="subModalTitle">Track Sign-Up Bonus (SUB)</h2>
+          <p class="text-xs text-outline mt-0.5">Ensure you capture 60,000–100,000+ point bonuses before the bank's strict spending deadline.</p>
+        </div>
+        <button id="closeSubModalBtn" class="p-1 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-4 overflow-y-auto max-h-[65vh]">
+        <input type="hidden" id="subIdInput" value=""/>
+
+        <div>
+          <label for="subCardSelect" class="text-[11px] font-mono text-outline block mb-1">Target Credit Card *</label>
+          <select id="subCardSelect" class="w-full px-3 py-2 text-xs rounded-lg bg-surface-container-lowest border border-surface-container-highest text-on-surface outline-none cursor-pointer">
+            <!-- Populated with state.allCards -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="subTargetSpendInput" class="text-[11px] font-mono text-outline block mb-1">Required Minimum Spend ($) *</label>
+            <input type="number" id="subTargetSpendInput" min="100" step="100" placeholder="e.g. 4000" class="w-full px-3 py-1.5 text-xs font-mono font-bold bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container text-on-surface outline-none" required/>
+          </div>
+          <div>
+            <label for="subCurrentSpendInput" class="text-[11px] font-mono text-outline block mb-1">Current Logged Spend ($)</label>
+            <input type="number" id="subCurrentSpendInput" min="0" step="25" placeholder="e.g. 1250" class="w-full px-3 py-1.5 text-xs font-mono font-bold bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container text-secondary outline-none"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="subDeadlineInput" class="text-[11px] font-mono text-outline block mb-1">Deadline Date (e.g. 90 days) *</label>
+            <input type="date" id="subDeadlineInput" class="w-full px-3 py-1.5 text-xs font-mono bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container text-on-surface outline-none" required/>
+          </div>
+          <div>
+            <label for="subRewardInput" class="text-[11px] font-mono text-outline block mb-1">Bonus Reward Description *</label>
+            <input type="text" id="subRewardInput" placeholder="e.g. 75,000 Points + $250 Credit" class="w-full px-3 py-1.5 text-xs bg-surface-container-lowest border border-surface-container-highest focus:border-primary-container text-on-surface outline-none" required/>
+          </div>
+        </div>
+
+        <!-- Priority Router Mode Toggle -->
+        <div class="p-3.5 rounded-xl bg-surface-container-lowest border border-primary-container/30 flex items-start gap-3">
+          <input type="checkbox" id="subPriorityToggle" class="mt-0.5 rounded text-primary-container focus:ring-0 cursor-pointer w-4 h-4" checked/>
+          <label for="subPriorityToggle" class="text-xs cursor-pointer select-none">
+            <span class="font-headline font-semibold text-on-surface flex items-center gap-1.5">
+              <span>⚡ Priority Spend Router Mode</span>
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-secondary/15 text-secondary border border-secondary/30">RECOMMENDED</span>
+            </span>
+            <span class="text-outline block mt-0.5 text-[11px] leading-relaxed">
+              When enabled, the Live Spend Router explicitly flags this card first until the minimum spend is cleared, safeguarding against forfeiting high-value welcome bonuses.
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-surface-container-highest bg-surface-container-lowest flex items-center justify-between">
+        <button id="deleteSubBtn" class="text-xs text-error hover:underline font-mono hidden">Delete Tracker</button>
+        <div class="flex items-center gap-2 ml-auto">
+          <button id="cancelSubBtn" class="px-3 py-1.5 rounded-lg border border-surface-container-highest text-xs text-on-surface hover:bg-surface-container transition-colors">Cancel</button>
+          <button id="saveSubBtn" class="px-4 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 transition-opacity">Save Tracker</button>
         </div>
       </div>
     </div>
